@@ -7,12 +7,50 @@ LIBEXEC_DIR="/usr/local/libexec/clamav-automation"
 BACKUP_DIR="/var/backups/clamav-automation/$(date '+%Y%m%d-%H%M%S')"
 CLAM_USER="clamav-auto"
 CLAM_GROUP="clamav-auto"
+CONFIG_SOURCE=""
+FORCE_INSTALL=0
 
 log() { printf '\n==> %s\n' "$*"; }
 die() { echo "FEHLER: $*" >&2; exit 1; }
 
 [[ $EUID -eq 0 ]] || die "Bitte als root ausführen."
 [[ -r /etc/os-release ]] || die "/etc/os-release fehlt."
+
+usage() {
+    cat <<EOF
+Aufruf: $0 [--force-install] [--config-source DATEI]
+
+  --force-install         nur inaktive Unit-Dateien/Templates bewusst übergehen
+  --config-source DATEI  geprüfte Konfiguration bei der Erstinstallation verwenden
+EOF
+}
+
+while (( $# > 0 )); do
+    case "$1" in
+        --force-install)
+            FORCE_INSTALL=1
+            shift
+            ;;
+        --config-source)
+            (( $# >= 2 )) || die "Für --config-source fehlt eine Datei."
+            CONFIG_SOURCE="$2"
+            shift 2
+            ;;
+        -h|--help) usage; exit 0 ;;
+        *) die "Unbekannte Option: $1" ;;
+    esac
+done
+
+[[ -z "$CONFIG_SOURCE" || -r "$CONFIG_SOURCE" ]] || \
+    die "Konfigurationsquelle ist nicht lesbar: $CONFIG_SOURCE"
+if [[ -n "$CONFIG_SOURCE" ]]; then
+    bash -n "$CONFIG_SOURCE" || die "Konfigurationsquelle enthält ungültige Bash-Syntax."
+fi
+
+# Muss vor Paketinstallation, Benutzeranlage und allen anderen Änderungen laufen.
+PREFLIGHT_ARGS=()
+(( FORCE_INSTALL == 1 )) && PREFLIGHT_ARGS+=(--force-install)
+"$PROJECT_DIR/scripts/preflight-check.sh" "${PREFLIGHT_ARGS[@]}"
 
 # shellcheck source=/dev/null
 source /etc/os-release
@@ -137,7 +175,7 @@ install -d -m 0750 /var/log/clamav-automation
 
 if [[ ! -e "$CONFIG_DIR/clamav-automation.conf" ]]; then
     install -m 0640 -o root -g "$CLAM_GROUP" \
-        "$PROJECT_DIR/config/clamav-automation.conf.example" \
+        "${CONFIG_SOURCE:-$PROJECT_DIR/config/clamav-automation.conf.example}" \
         "$CONFIG_DIR/clamav-automation.conf"
     FIRST_INSTALL=1
 else

@@ -34,13 +34,42 @@ von der genauen RPM-Aufteilung einer einzelnen EPEL-Version.
 
 ## Installation
 
+Der Installer bricht vor jeder Änderung ab, wenn ClamAV-Binaries, installierte
+ClamAV-Pakete oder aktive beziehungsweise für den automatischen Start aktivierte
+systemd-Units gefunden werden. Dieser Abbruch kann nicht erzwungen werden.
+
+Werden ausschließlich inaktive Unit-Dateien oder Templates gefunden, weist der
+Installer auf einen erforderlichen Neustart hin. Nach Prüfung und Neustart kann
+nur dieser Konflikttyp bewusst übergangen werden:
+
+```bash
+sudo ./install.sh --force-install
+```
+
 ```bash
 unzip clamav-linux-automation.zip
 cd clamav-linux-automation
 sudo ./install.sh
 ```
 
-Danach unbedingt die SMTP-Konfiguration anpassen:
+### Geführte Installation im AS/400-Stil
+
+Alternativ steht eine dialogbasierte Terminaloberfläche zur Verfügung:
+
+```bash
+sudo ./install-tui.sh
+```
+
+Für den gleichen Ausnahmefall unterstützt die TUI ebenfalls
+`sudo ./install-tui.sh --force-install`.
+
+Sie fragt SMTP-Zugang, Mailadressen, Scanpfade, Scanlimits, Erkennungsoptionen,
+Zeitpläne und Protokollaufbewahrung ab. Vertrauliche Passwörter erscheinen weder
+in der Zusammenfassung noch auf dem Bildschirm. Benötigt wird das Programm
+`dialog` (`pacman -S dialog` beziehungsweise `dnf install dialog`).
+
+Bei der klassischen Installation anschließend unbedingt die SMTP-Konfiguration
+anpassen:
 
 ```bash
 sudo editor /etc/clamav-automation/clamav-automation.conf

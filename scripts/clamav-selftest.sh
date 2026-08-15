@@ -109,6 +109,8 @@ if [[ "$answer" =~ ^[jJyY]$ ]]; then
     mkdir -p "$testdir"
     testfile="$testdir/eicar.com"
 
+    # Die Dollarzeichen gehören literal zur EICAR-Testsignatur.
+    # shellcheck disable=SC2016
     printf '%s%s\n' \
       'X5O!P%@AP[4\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!' \
       '$H+H*' >"$testfile" 2>/dev/null || true

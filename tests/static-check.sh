@@ -13,8 +13,10 @@ python3 -m py_compile "$ROOT/scripts/clamav-mail.py"
 
 echo "Prüfe erwartete Dateien..."
 for f in \
-    install.sh uninstall.sh \
+    install.sh install-tui.sh uninstall.sh \
     config/clamav-automation.conf.example \
+    config/dialogrc-as400 \
+    scripts/preflight-check.sh \
     systemd/clamav-auto-clamd.service \
     systemd/clamav-auto-onaccess.service \
     systemd/clamav-auto-freshclam.service \
