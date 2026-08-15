@@ -311,6 +311,101 @@ Die tägliche Heartbeat-Mail enthält:
 So fällt auch ein Scanner auf, der zwar keinen Virus meldet, aber aufgrund
 eines technischen Fehlers nicht mehr arbeitet.
 
+## Ergänzender Security Audit
+
+ClamAV erkennt bekannte schädliche Inhalte. Der ergänzende Security Audit sucht
+dagegen nach Veränderungen an Konten, Persistenzmechanismen, Paketdateien,
+Repositories und weiteren sicherheitsrelevanten Systemzuständen. Er ist bewusst
+kein EDR und führt keinerlei automatische Gegenmaßnahmen aus.
+
+Distributionsübergreifend werden – jeweils konfigurierbar – geprüft:
+
+- Benutzer, UID/GID, zusätzliche UID-0-Konten und Kontodatei-Hashes
+- aktivierte systemd-Services/Timer, Unit-Dateien und auffällige `ExecStart`-Pfade
+- Cronjobs und andere zeitgesteuerte Persistenz
+- `authorized_keys` anhand von Datei- und einzelnen Key-Fingerprints
+- SUID/SGID-Dateien und Linux File-Capabilities
+- Repository-Konfigurationen und optional Listening Sockets
+- Zustand von `clamd` und FreshClam-Timer
+
+Arch und Manjaro ergänzen `pacman -Qm`, bevorzugt `paccheck` und ersatzweise
+`pacman -Qk`. RHEL und Rocky ergänzen `rpm -Va`, RPM-GPG-Key-Baselines und
+DNF/YUM-Repositoryprüfungen. Konfigurationsabweichungen unter `/etc` werden nicht
+pauschal als Angriff eingestuft.
+
+Optional können lokal vorhandene AUR-Quellverzeichnisse über
+`SECURITY_AUR_SOURCE_DIRS` statisch auf auffällige Konstrukte geprüft werden.
+Treffer sind ausdrücklich Heuristiken und werden nicht als Malware-Beweis
+behandelt; PKGBUILDs oder Installskripte werden niemals ausgeführt.
+
+### Daily, Weekly und Incident
+
+```bash
+sudo /usr/local/libexec/clamav-automation/security-audit.sh --daily
+sudo /usr/local/libexec/clamav-automation/security-audit.sh --weekly
+sudo /usr/local/libexec/clamav-automation/security-audit.sh --incident
+```
+
+Daily führt die leichteren Zustandsprüfungen aus. Weekly ergänzt
+Paketintegritäts- und YARA-Prüfungen. Incident führt den vollständigen Audit aus
+und hängt Prozessbaum, Sockets, Kernelmodule, Login-Historie und relevante
+Journalmeldungen an einen separaten Report an. `flock` verhindert überlappende
+systemd-Läufe.
+
+Ein ungefährlicher Testlauf ohne dauerhafte Baseline, Report oder Mail:
+
+```bash
+sudo /usr/local/libexec/clamav-automation/security-audit.sh --weekly --dry-run
+```
+
+### Baselines
+
+Beim ersten Lauf wird je Prüftyp eine restriktiv geschützte Baseline unter
+`/var/lib/clamav-security/baselines` erzeugt. Bestehende Einträge lösen dabei
+keinen Alarm aus. Spätere Zustände und Diffs werden unter
+`/var/log/clamav-security` abgelegt; Änderungen überschreiben die Baseline nicht.
+
+Eine Baseline wird nur ausdrücklich aktualisiert:
+
+```bash
+sudo /usr/local/libexec/clamav-automation/security-audit.sh \
+  --weekly --update-baseline
+```
+
+> Baselines müssen auf einem als vertrauenswürdig angesehenen Systemzustand
+> erzeugt werden.
+
+### Severity und Mail
+
+- `INFO`: Initialisierung, entfernte Einträge und fehlende optionale Werkzeuge
+- `WARNING`: neue Dienste, Cronjobs, Fremdpakete, Listener oder Integritätsabweichungen
+- `CRITICAL`: zusätzliche UID-0-Konten, kritische SUID-/Capability-Funde,
+  root-SSH-Key-Änderungen oder Persistenz aus temporären Pfaden
+
+Benachrichtigungen verwenden ausschließlich den vorhandenen SMTP-Client. Mit
+`SECURITY_NOTIFY_INFO`, `SECURITY_NOTIFY_WARNING` und
+`SECURITY_NOTIFY_CRITICAL` wird festgelegt, welche Severity eine Mail auslöst.
+Ein kurzer OK-Heartbeat ist separat konfigurierbar.
+
+### YARA
+
+YARA ist optional. Lokale Regeln mit Endung `.yar` oder `.yara` werden unter
+`/etc/clamav-security/yara` abgelegt. Scanpfade stehen in
+`SECURITY_YARA_SCAN_PATHS`. Es werden keine Regeln aus dem Internet geladen und
+kein vollständiger Root-Dateisystemscan erzwungen. Fehlt `yara`, wird lediglich
+ein INFO-Eintrag protokolliert.
+
+### Datenschutz und Einschränkungen
+
+Reports und Baselines sind nur für root lesbar. `/etc/shadow` wird ausschließlich
+gehasht; sein Inhalt erscheint nie im Report. SSH-Schlüssel werden nicht
+ausgegeben, sondern einzeln gehasht. Gefundene Dateien oder Inhalte werden nie
+ausgeführt. Der Audit löscht oder deaktiviert keine Dateien, Konten, Pakete,
+Dienste oder Schlüssel.
+
+> Ein erfolgreicher Audit ohne Findings ist kein Beweis dafür, dass ein System
+> nicht kompromittiert wurde.
+
 ## SELinux
 
 Unter RHEL/Rocky aktiviert der Installer – soweit verfügbar:
@@ -394,13 +489,17 @@ clamav-linux-automation/
 │   ├── clamav-mail.py
 │   ├── clamav-selftest.sh
 │   ├── clamav-virus-event.sh
+│   ├── security-audit.sh
 │   └── render-config.sh
 ├── systemd/
 │   ├── clamav-auto-clamd.service
 │   ├── clamav-auto-freshclam.service
 │   ├── clamav-auto-heartbeat.service
 │   ├── clamav-auto-onaccess.service
+│   ├── clamav-auto-security-daily.service
+│   ├── clamav-auto-security-weekly.service
 │   └── clamav-auto-scan.service
 └── tests/
+    ├── security-audit-test.conf
     └── static-check.sh
 ```

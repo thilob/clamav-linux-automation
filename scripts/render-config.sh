@@ -117,7 +117,35 @@ RandomizedDelaySec=${HEARTBEAT_RANDOM_DELAY:-15m}
 WantedBy=timers.target
 EOF
 
+cat >/etc/systemd/system/clamav-auto-security-daily.timer <<EOF
+[Unit]
+Description=Daily ClamAV security audit schedule
+
+[Timer]
+OnCalendar=${SECURITY_AUDIT_DAILY_CALENDAR:-*-*-* 03:40:00}
+Persistent=true
+RandomizedDelaySec=${SECURITY_AUDIT_DAILY_RANDOM_DELAY:-30m}
+
+[Install]
+WantedBy=timers.target
+EOF
+
+cat >/etc/systemd/system/clamav-auto-security-weekly.timer <<EOF
+[Unit]
+Description=Weekly ClamAV security audit schedule
+
+[Timer]
+OnCalendar=${SECURITY_AUDIT_WEEKLY_CALENDAR:-Sun *-*-* 04:30:00}
+Persistent=true
+RandomizedDelaySec=${SECURITY_AUDIT_WEEKLY_RANDOM_DELAY:-60m}
+
+[Install]
+WantedBy=timers.target
+EOF
+
 chown root:clamav-auto "$CLAMD_CONF"
 chmod 0640 "$CLAMD_CONF"
 chmod 0644 /etc/clamav-automation/freshclam.conf
+chmod 0644 /etc/systemd/system/clamav-auto-security-daily.timer \
+    /etc/systemd/system/clamav-auto-security-weekly.timer
 systemctl daemon-reload

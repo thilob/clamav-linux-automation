@@ -9,7 +9,9 @@ while IFS= read -r -d '' f; do
 done < <(find "$ROOT" -type f -name '*.sh' -print0)
 
 echo "Python Syntaxprüfung..."
-python3 -m py_compile "$ROOT/scripts/clamav-mail.py"
+PYCACHE_DIR="$(mktemp -d "${TMPDIR:-/tmp}/clamav-pycache.XXXXXX")"
+PYTHONPYCACHEPREFIX="$PYCACHE_DIR" python3 -m py_compile "$ROOT/scripts/clamav-mail.py"
+rm -rf -- "$PYCACHE_DIR"
 
 echo "Prüfe Distributionserkennung ohne VERSION_ID..."
 # Der einfach quotierte Code soll absichtlich erst in der inneren Bash expandieren.
@@ -32,13 +34,24 @@ for f in \
     config/dialogrc-as400 \
     scripts/config-functions.sh \
     scripts/clamav-wait-for-clamd.sh \
+    scripts/security-audit.sh \
     scripts/preflight-check.sh \
+    tests/security-audit-baseline-test.sh \
     systemd/clamav-auto-clamd.service \
     systemd/clamav-auto-onaccess.service \
     systemd/clamav-auto-freshclam.service \
     systemd/clamav-auto-scan.service \
-    systemd/clamav-auto-heartbeat.service; do
+    systemd/clamav-auto-heartbeat.service \
+    systemd/clamav-auto-security-daily.service \
+    systemd/clamav-auto-security-weekly.service; do
     [[ -f "$ROOT/$f" ]] || { echo "FEHLT: $f" >&2; exit 1; }
 done
+
+echo "Prüfe Security-Audit-Dry-Run..."
+SECURITY_AUDIT_CONFIG="$ROOT/tests/security-audit-test.conf" \
+    "$ROOT/scripts/security-audit.sh" --weekly --dry-run | \
+    grep -q '^CRITICAL: 0$'
+
+"$ROOT/tests/security-audit-baseline-test.sh"
 
 echo "Alle statischen Prüfungen erfolgreich."

@@ -140,3 +140,53 @@ HEARTBEAT_RANDOM_DELAY="15m"
 
 SCAN_LOG_RETENTION_DAYS="30"
 HEARTBEAT_JOURNAL_SINCE="24 hours ago"
+
+###############################################################################
+# Ergänzender Security Audit (nur Erkennung und Meldung, keine Remediation)
+###############################################################################
+
+SECURITY_AUDIT_ENABLED="true"
+SECURITY_AUDIT_DAILY_ENABLED="true"
+SECURITY_AUDIT_WEEKLY_ENABLED="true"
+SECURITY_AUDIT_MAIL_ON_FINDING="true"
+SECURITY_AUDIT_HEARTBEAT="true"
+
+SECURITY_BASELINE_DIR="/var/lib/clamav-security/baselines"
+SECURITY_REPORT_DIR="/var/log/clamav-security"
+
+SECURITY_CHECK_USERS="true"
+SECURITY_CHECK_SYSTEMD="true"
+SECURITY_CHECK_CRON="true"
+SECURITY_CHECK_SSH="true"
+SECURITY_CHECK_SUID="true"
+SECURITY_CHECK_CAPABILITIES="true"
+SECURITY_CHECK_PACKAGES="true"
+SECURITY_CHECK_REPOSITORIES="true"
+SECURITY_CHECK_NETWORK="false"
+SECURITY_CHECK_YARA="true"
+SECURITY_CHECK_CLAMAV="true"
+SECURITY_CHECK_AUR_SOURCES="false"
+
+# Optionale, lokal vorhandene AUR-Buildverzeichnisse. Dateien werden nur statisch
+# gelesen; kein Inhalt wird ausgeführt.
+SECURITY_AUR_SOURCE_DIRS=()
+
+SECURITY_YARA_RULE_DIR="/etc/clamav-security/yara"
+SECURITY_YARA_SCAN_PATHS=(
+    "/tmp"
+    "/var/tmp"
+    "/dev/shm"
+    "/usr/local/bin"
+    "/usr/local/sbin"
+    "/root"
+    "/home"
+)
+
+SECURITY_NOTIFY_INFO="false"
+SECURITY_NOTIFY_WARNING="true"
+SECURITY_NOTIFY_CRITICAL="true"
+
+SECURITY_AUDIT_DAILY_CALENDAR="*-*-* 03:40:00"
+SECURITY_AUDIT_WEEKLY_CALENDAR="Sun *-*-* 04:30:00"
+SECURITY_AUDIT_DAILY_RANDOM_DELAY="30m"
+SECURITY_AUDIT_WEEKLY_RANDOM_DELAY="60m"

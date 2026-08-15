@@ -29,7 +29,8 @@ def expand(text: str, values: dict[str, str]) -> str:
 
 def main() -> int:
     p = argparse.ArgumentParser(description="SMTP mail helper for ClamAV automation")
-    p.add_argument("--kind", choices=["virus", "scan-error", "heartbeat", "test"], required=True)
+    p.add_argument("--kind", choices=["virus", "scan-error", "heartbeat", "security", "test"], required=True)
+    p.add_argument("--subject", default="")
     p.add_argument("--virus", default="")
     p.add_argument("--file", default="")
     p.add_argument("--details", default="")
@@ -52,6 +53,14 @@ def main() -> int:
     elif args.kind == "heartbeat":
         subject = shell_var("HEARTBEAT_MAIL_SUBJECT")
         body = shell_var("HEARTBEAT_MAIL_TEXT")
+    elif args.kind == "security":
+        subject = args.subject or "[Security Audit] {hostname}"
+        body = """Security Audit von {hostname}
+
+Zeit: {date}
+
+{details}
+"""
     else:
         subject = "[ClamAV] SMTP-Test von {hostname}"
         body = """Dies ist eine Testnachricht der ClamAV-Automation.

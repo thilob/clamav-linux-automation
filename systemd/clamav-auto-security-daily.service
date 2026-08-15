@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily ClamAV security audit
+After=local-fs.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/flock -n /run/clamav-auto-security-audit.lock /usr/local/libexec/clamav-automation/security-audit.sh --daily
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7

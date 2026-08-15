@@ -167,3 +167,34 @@ systemd-analyze calendar '*-*-* 00,06,12,18:15:00'
 systemd-analyze calendar '*-*-* 02:30:00'
 systemd-analyze calendar '*-*-* 06:45:00'
 ```
+
+## Security Audit betreiben
+
+Timer und letzte Läufe:
+
+```bash
+systemctl list-timers 'clamav-auto-security-*'
+journalctl -u clamav-auto-security-daily.service -n 100 --no-pager
+journalctl -u clamav-auto-security-weekly.service -n 100 --no-pager
+```
+
+Manuelle Modi:
+
+```bash
+sudo /usr/local/libexec/clamav-automation/security-audit.sh --daily
+sudo /usr/local/libexec/clamav-automation/security-audit.sh --weekly
+sudo /usr/local/libexec/clamav-automation/security-audit.sh --incident
+```
+
+Reports liegen standardmäßig unter `/var/log/clamav-security`, unveränderliche
+Vergleichsbaselines unter `/var/lib/clamav-security/baselines`. Eine Änderung
+wird erst nach fachlicher Prüfung ausdrücklich als neuer Sollzustand übernommen:
+
+```bash
+sudo /usr/local/libexec/clamav-automation/security-audit.sh \
+  --weekly --update-baseline
+```
+
+YARA-Regeln werden ausschließlich lokal als `.yar` oder `.yara` unter
+`/etc/clamav-security/yara` verwaltet. Fehlende optionale Programme wie `yara`,
+`paccheck` oder `getcap` brechen den Audit nicht ab.

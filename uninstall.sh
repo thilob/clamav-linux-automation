@@ -29,7 +29,9 @@ for unit in \
     clamav-auto-clamd.service \
     clamav-auto-freshclam.timer \
     clamav-auto-scan.timer \
-    clamav-auto-heartbeat.timer; do
+    clamav-auto-heartbeat.timer \
+    clamav-auto-security-daily.timer \
+    clamav-auto-security-weekly.timer; do
     systemctl disable --now "$unit" >/dev/null 2>&1 || true
 done
 
@@ -41,12 +43,18 @@ rm -f \
     /etc/systemd/system/clamav-auto-scan.service \
     /etc/systemd/system/clamav-auto-scan.timer \
     /etc/systemd/system/clamav-auto-heartbeat.service \
-    /etc/systemd/system/clamav-auto-heartbeat.timer
+    /etc/systemd/system/clamav-auto-heartbeat.timer \
+    /etc/systemd/system/clamav-auto-security-daily.service \
+    /etc/systemd/system/clamav-auto-security-daily.timer \
+    /etc/systemd/system/clamav-auto-security-weekly.service \
+    /etc/systemd/system/clamav-auto-security-weekly.timer
 
 rm -rf /usr/local/libexec/clamav-automation
 
 if (( KEEP_CONFIG == 0 )); then
-    rm -rf /etc/clamav-automation /var/log/clamav-automation
+    rm -rf /etc/clamav-automation /etc/clamav-security \
+        /var/log/clamav-automation /var/log/clamav-security \
+        /var/lib/clamav-security
 else
     echo "Konfiguration bleibt erhalten: /etc/clamav-automation"
 fi

@@ -15,6 +15,8 @@ units=(
     clamav-auto-scan.service
     clamav-auto-scan.timer
     clamav-auto-heartbeat.timer
+    clamav-auto-security-daily.timer
+    clamav-auto-security-weekly.timer
 )
 
 DETAILS="$(

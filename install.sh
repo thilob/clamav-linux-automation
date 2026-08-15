@@ -102,7 +102,7 @@ if [[ -z "$CONFIG_SOURCE" && ! -e "$CONFIG_DIR/clamav-automation.conf" ]]; then
     [[ -z "$SMTP_USER" || -n "$SMTP_PASSWORD" ]] || die \
         "Bei gesetztem --smtp-user muss auch --smtp-password angegeben werden."
 
-    # shellcheck source=scripts/config-functions.sh
+    # shellcheck source=./scripts/config-functions.sh
     source "$PROJECT_DIR/scripts/config-functions.sh"
     GENERATED_CONFIG="$(mktemp /tmp/clamav-automation-install.XXXXXX)"
     chmod 0600 "$GENERATED_CONFIG"
@@ -214,7 +214,7 @@ case "$DISTRO_ID" in
         ;;
 esac
 
-for binary in clamd clamdscan freshclam clamonacc python3 systemctl journalctl; do
+for binary in clamd clamdscan freshclam clamonacc python3 systemctl journalctl flock sha256sum; do
     command -v "$binary" >/dev/null 2>&1 || die "Nach Installation fehlt: $binary"
 done
 
@@ -250,6 +250,9 @@ install -d -m 0755 "$LIBEXEC_DIR"
 install -d -o "$CLAM_USER" -g "$CLAM_GROUP" -m 0755 /var/lib/clamav
 install -d -o "$CLAM_USER" -g "$CLAM_GROUP" -m 0700 /var/lib/clamav/tmp
 install -d -m 0750 /var/log/clamav-automation
+install -d -o root -g root -m 0750 /var/lib/clamav-security/baselines
+install -d -o root -g root -m 0750 /var/log/clamav-security
+install -d -o root -g root -m 0750 /etc/clamav-security/yara
 
 if [[ ! -e "$CONFIG_DIR/clamav-automation.conf" ]]; then
     install -m 0640 -o root -g "$CLAM_GROUP" \
@@ -268,6 +271,7 @@ install -m 0755 "$PROJECT_DIR/scripts/clamav-daily-scan.sh" "$LIBEXEC_DIR/"
 install -m 0755 "$PROJECT_DIR/scripts/clamav-heartbeat.sh" "$LIBEXEC_DIR/"
 install -m 0755 "$PROJECT_DIR/scripts/clamav-selftest.sh" "$LIBEXEC_DIR/"
 install -m 0755 "$PROJECT_DIR/scripts/clamav-wait-for-clamd.sh" "$LIBEXEC_DIR/"
+install -m 0755 "$PROJECT_DIR/scripts/security-audit.sh" "$LIBEXEC_DIR/"
 install -m 0755 "$PROJECT_DIR/scripts/render-config.sh" "$LIBEXEC_DIR/"
 
 for unit in "$PROJECT_DIR"/systemd/*.service; do
@@ -333,6 +337,17 @@ systemctl enable --now clamav-auto-onaccess.service
 systemctl enable --now clamav-auto-freshclam.timer
 systemctl enable --now clamav-auto-scan.timer
 systemctl enable --now clamav-auto-heartbeat.timer
+
+# shellcheck source=/dev/null
+source "$CONFIG_DIR/clamav-automation.conf"
+if [[ "${SECURITY_AUDIT_ENABLED:-true}" =~ ^(yes|true|1|on)$ ]]; then
+    if [[ "${SECURITY_AUDIT_DAILY_ENABLED:-true}" =~ ^(yes|true|1|on)$ ]]; then
+        systemctl enable --now clamav-auto-security-daily.timer
+    fi
+    if [[ "${SECURITY_AUDIT_WEEKLY_ENABLED:-true}" =~ ^(yes|true|1|on)$ ]]; then
+        systemctl enable --now clamav-auto-security-weekly.timer
+    fi
+fi
 
 if ! systemctl is-active --quiet clamav-auto-onaccess.service; then
     journalctl -u clamav-auto-onaccess.service -n 80 --no-pager || true

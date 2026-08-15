@@ -124,6 +124,19 @@ SCAN_LOG_RETENTION_DAYS="$(inputbox "PROTOKOLLIERUNG" "Aufbewahrung der Scanprot
 require_uint "SCAN_LOG_RETENTION_DAYS" "$SCAN_LOG_RETENTION_DAYS" || exit 1
 HEARTBEAT_JOURNAL_SINCE="$(inputbox "PROTOKOLLIERUNG" "Journal-Zeitraum für den Heartbeat" "24 hours ago")" || exit 1
 
+SECURITY_AUDIT_ENABLED="$(menu_choice "SECURITY AUDIT" "Ergänzenden Security Audit aktivieren?" "true" \
+    true "Audit aktivieren" false "Audit deaktivieren")" || exit 1
+SECURITY_AUDIT_DAILY_ENABLED="$(menu_choice "SECURITY AUDIT" "Täglichen Audit-Timer aktivieren?" "true" \
+    true "Daily aktivieren" false "Daily deaktivieren")" || exit 1
+SECURITY_AUDIT_WEEKLY_ENABLED="$(menu_choice "SECURITY AUDIT" "Wöchentlichen Intensiv-Audit aktivieren?" "true" \
+    true "Weekly aktivieren" false "Weekly deaktivieren")" || exit 1
+SECURITY_CHECK_NETWORK="$(menu_choice "SECURITY AUDIT" "Listening Sockets mit Baseline vergleichen?" "false" \
+    false "Netzwerkprüfung deaktiviert" true "Netzwerkprüfung aktiviert")" || exit 1
+SECURITY_CHECK_YARA="$(menu_choice "SECURITY AUDIT" "Optionale lokale YARA-Regeln verwenden?" "true" \
+    true "YARA verwenden, falls installiert" false "YARA deaktivieren")" || exit 1
+SECURITY_AUDIT_DAILY_CALENDAR="$(inputbox "AUDIT-ZEITPLAN" "Täglicher Security Audit (systemd OnCalendar)" "*-*-* 03:40:00")" || exit 1
+SECURITY_AUDIT_WEEKLY_CALENDAR="$(inputbox "AUDIT-ZEITPLAN" "Wöchentlicher Security Audit (systemd OnCalendar)" "Sun *-*-* 04:30:00")" || exit 1
+
 TMP_CONFIG="$(mktemp /tmp/clamav-automation-tui.XXXXXX)"
 chmod 0600 "$TMP_CONFIG"
 config_copy_without_keys \
@@ -133,7 +146,10 @@ config_copy_without_keys \
     CLAMD_MAX_SCAN_SIZE CLAMD_MAX_RECURSION CLAMD_MAX_FILES DETECT_PUA \
     FRESHCLAM_CALENDAR DAILY_SCAN_CALENDAR HEARTBEAT_CALENDAR \
     FRESHCLAM_RANDOM_DELAY DAILY_SCAN_RANDOM_DELAY HEARTBEAT_RANDOM_DELAY \
-    SCAN_LOG_RETENTION_DAYS HEARTBEAT_JOURNAL_SINCE
+    SCAN_LOG_RETENTION_DAYS HEARTBEAT_JOURNAL_SINCE \
+    SECURITY_AUDIT_ENABLED SECURITY_AUDIT_DAILY_ENABLED SECURITY_AUDIT_WEEKLY_ENABLED \
+    SECURITY_CHECK_NETWORK SECURITY_CHECK_YARA SECURITY_AUDIT_DAILY_CALENDAR \
+    SECURITY_AUDIT_WEEKLY_CALENDAR
 {
     echo
     echo "# Von install-tui.sh erfasste Werte"
@@ -161,6 +177,13 @@ config_append_scalar "$TMP_CONFIG" DAILY_SCAN_RANDOM_DELAY "$DAILY_SCAN_RANDOM_D
 config_append_scalar "$TMP_CONFIG" HEARTBEAT_RANDOM_DELAY "$HEARTBEAT_RANDOM_DELAY"
 config_append_scalar "$TMP_CONFIG" SCAN_LOG_RETENTION_DAYS "$SCAN_LOG_RETENTION_DAYS"
 config_append_scalar "$TMP_CONFIG" HEARTBEAT_JOURNAL_SINCE "$HEARTBEAT_JOURNAL_SINCE"
+config_append_scalar "$TMP_CONFIG" SECURITY_AUDIT_ENABLED "$SECURITY_AUDIT_ENABLED"
+config_append_scalar "$TMP_CONFIG" SECURITY_AUDIT_DAILY_ENABLED "$SECURITY_AUDIT_DAILY_ENABLED"
+config_append_scalar "$TMP_CONFIG" SECURITY_AUDIT_WEEKLY_ENABLED "$SECURITY_AUDIT_WEEKLY_ENABLED"
+config_append_scalar "$TMP_CONFIG" SECURITY_CHECK_NETWORK "$SECURITY_CHECK_NETWORK"
+config_append_scalar "$TMP_CONFIG" SECURITY_CHECK_YARA "$SECURITY_CHECK_YARA"
+config_append_scalar "$TMP_CONFIG" SECURITY_AUDIT_DAILY_CALENDAR "$SECURITY_AUDIT_DAILY_CALENDAR"
+config_append_scalar "$TMP_CONFIG" SECURITY_AUDIT_WEEKLY_CALENDAR "$SECURITY_AUDIT_WEEKLY_CALENDAR"
 
 SUMMARY="SMTP:        $SMTP_HOST:$SMTP_PORT ($SMTP_SECURITY)
 Absender:     $MAIL_FROM
@@ -171,6 +194,8 @@ Prevention:   $ONACCESS_PREVENTION
 PUA:          $DETECT_PUA
 Scanzeit:     $DAILY_SCAN_CALENDAR
 Heartbeat:    $HEARTBEAT_CALENDAR
+Audit Daily:  $SECURITY_AUDIT_ENABLED / $SECURITY_AUDIT_DAILY_CALENDAR
+Audit Weekly: $SECURITY_AUDIT_WEEKLY_ENABLED / $SECURITY_AUDIT_WEEKLY_CALENDAR
 
 Das SMTP-Passwort wird aus Sicherheitsgründen nicht angezeigt."
 
