@@ -30,6 +30,7 @@ for f in \
     install.sh install-tui.sh uninstall.sh \
     config/clamav-automation.conf.example \
     config/dialogrc-as400 \
+    scripts/config-functions.sh \
     scripts/preflight-check.sh \
     systemd/clamav-auto-clamd.service \
     systemd/clamav-auto-onaccess.service \

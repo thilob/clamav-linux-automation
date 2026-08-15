@@ -27,6 +27,9 @@ PREFLIGHT_ARGS=()
 (( FORCE_INSTALL == 1 )) && PREFLIGHT_ARGS+=(--force-install)
 "$PROJECT_DIR/scripts/preflight-check.sh" "${PREFLIGHT_ARGS[@]}"
 
+# shellcheck source=scripts/config-functions.sh
+source "$PROJECT_DIR/scripts/config-functions.sh"
+
 command -v dialog >/dev/null 2>&1 || die \
     "Das Programm 'dialog' wird für die TUI benötigt (Arch: pacman -S dialog, RHEL/Rocky: dnf install dialog)."
 
@@ -63,22 +66,6 @@ require_uint() {
     [[ "$2" =~ ^[0-9]+$ ]] || { dmsg "EINGABEFEHLER" "$1 muss eine nichtnegative ganze Zahl sein."; return 1; }
 }
 
-shell_quote() { printf '%q' "$1"; }
-
-append_scalar() {
-    printf '%s=%s\n' "$1" "$(shell_quote "$2")" >>"$TMP_CONFIG"
-}
-
-append_array() {
-    local name="$1" raw="$2" item
-    printf '%s=(\n' "$name" >>"$TMP_CONFIG"
-    IFS=':' read -r -a items <<<"$raw"
-    for item in "${items[@]}"; do
-        [[ -n "$item" ]] && printf '    %s\n' "$(shell_quote "$item")" >>"$TMP_CONFIG"
-    done
-    printf ')\n' >>"$TMP_CONFIG"
-}
-
 dmsg "HAUPTMENÜ" \
 "5770-CLM  ClamAV Automation
 
@@ -86,7 +73,7 @@ Mit F12 bzw. <Abbrechen> kann die Installation jederzeit beendet werden.
 Alle Angaben werden vor der Installation nochmals angezeigt."
 
 while :; do
-    SMTP_HOST="$(inputbox "SMTP-PARAMETER" "SMTP-Server (FQDN oder IP-Adresse)" "smtp.example.org")" || exit 1
+    SMTP_HOST="$(inputbox "SMTP-PARAMETER" "SMTP-Server (FQDN oder IP-Adresse)" "")" || exit 1
     require_nonempty "SMTP_HOST" "$SMTP_HOST" && break
 done
 while :; do
@@ -99,11 +86,11 @@ SMTP_SECURITY="$(menu_choice "SMTP-PARAMETER" "Transportverschlüsselung auswäh
 SMTP_USER="$(inputbox "SMTP-ANMELDUNG" "SMTP-Benutzer (leer = keine Authentifizierung)" "")" || exit 1
 SMTP_PASSWORD="$(passwordbox "SMTP-ANMELDUNG" "SMTP-Passwort (wird nicht angezeigt)")" || exit 1
 while :; do
-    MAIL_FROM="$(inputbox "MAIL-ADRESSEN" "Absenderadresse" "clamav@example.org")" || exit 1
+    MAIL_FROM="$(inputbox "MAIL-ADRESSEN" "Absenderadresse" "")" || exit 1
     require_nonempty "MAIL_FROM" "$MAIL_FROM" && break
 done
 while :; do
-    MAIL_TO="$(inputbox "MAIL-ADRESSEN" "Empfängeradresse(n)" "admin@example.org")" || exit 1
+    MAIL_TO="$(inputbox "MAIL-ADRESSEN" "Empfängeradresse(n)" "")" || exit 1
     require_nonempty "MAIL_TO" "$MAIL_TO" && break
 done
 
@@ -139,34 +126,41 @@ HEARTBEAT_JOURNAL_SINCE="$(inputbox "PROTOKOLLIERUNG" "Journal-Zeitraum für den
 
 TMP_CONFIG="$(mktemp /tmp/clamav-automation-tui.XXXXXX)"
 chmod 0600 "$TMP_CONFIG"
-cp "$PROJECT_DIR/config/clamav-automation.conf.example" "$TMP_CONFIG"
+config_copy_without_keys \
+    "$PROJECT_DIR/config/clamav-automation.conf.example" "$TMP_CONFIG" \
+    SMTP_HOST SMTP_PORT SMTP_SECURITY SMTP_USER SMTP_PASSWORD MAIL_FROM MAIL_TO \
+    DAILY_SCAN_PATHS ONACCESS_PATHS ONACCESS_PREVENTION CLAMD_MAX_FILE_SIZE \
+    CLAMD_MAX_SCAN_SIZE CLAMD_MAX_RECURSION CLAMD_MAX_FILES DETECT_PUA \
+    FRESHCLAM_CALENDAR DAILY_SCAN_CALENDAR HEARTBEAT_CALENDAR \
+    FRESHCLAM_RANDOM_DELAY DAILY_SCAN_RANDOM_DELAY HEARTBEAT_RANDOM_DELAY \
+    SCAN_LOG_RETENTION_DAYS HEARTBEAT_JOURNAL_SINCE
 {
     echo
     echo "# Von install-tui.sh erfasste Werte"
 } >>"$TMP_CONFIG"
-append_scalar SMTP_HOST "$SMTP_HOST"
-append_scalar SMTP_PORT "$SMTP_PORT"
-append_scalar SMTP_SECURITY "$SMTP_SECURITY"
-append_scalar SMTP_USER "$SMTP_USER"
-append_scalar SMTP_PASSWORD "$SMTP_PASSWORD"
-append_scalar MAIL_FROM "$MAIL_FROM"
-append_scalar MAIL_TO "$MAIL_TO"
-append_array DAILY_SCAN_PATHS "$DAILY_SCAN_PATHS"
-append_array ONACCESS_PATHS "$ONACCESS_PATHS"
-append_scalar ONACCESS_PREVENTION "$ONACCESS_PREVENTION"
-append_scalar CLAMD_MAX_FILE_SIZE "$CLAMD_MAX_FILE_SIZE"
-append_scalar CLAMD_MAX_SCAN_SIZE "$CLAMD_MAX_SCAN_SIZE"
-append_scalar CLAMD_MAX_RECURSION "$CLAMD_MAX_RECURSION"
-append_scalar CLAMD_MAX_FILES "$CLAMD_MAX_FILES"
-append_scalar DETECT_PUA "$DETECT_PUA"
-append_scalar FRESHCLAM_CALENDAR "$FRESHCLAM_CALENDAR"
-append_scalar DAILY_SCAN_CALENDAR "$DAILY_SCAN_CALENDAR"
-append_scalar HEARTBEAT_CALENDAR "$HEARTBEAT_CALENDAR"
-append_scalar FRESHCLAM_RANDOM_DELAY "$FRESHCLAM_RANDOM_DELAY"
-append_scalar DAILY_SCAN_RANDOM_DELAY "$DAILY_SCAN_RANDOM_DELAY"
-append_scalar HEARTBEAT_RANDOM_DELAY "$HEARTBEAT_RANDOM_DELAY"
-append_scalar SCAN_LOG_RETENTION_DAYS "$SCAN_LOG_RETENTION_DAYS"
-append_scalar HEARTBEAT_JOURNAL_SINCE "$HEARTBEAT_JOURNAL_SINCE"
+config_append_scalar "$TMP_CONFIG" SMTP_HOST "$SMTP_HOST"
+config_append_scalar "$TMP_CONFIG" SMTP_PORT "$SMTP_PORT"
+config_append_scalar "$TMP_CONFIG" SMTP_SECURITY "$SMTP_SECURITY"
+config_append_scalar "$TMP_CONFIG" SMTP_USER "$SMTP_USER"
+config_append_scalar "$TMP_CONFIG" SMTP_PASSWORD "$SMTP_PASSWORD"
+config_append_scalar "$TMP_CONFIG" MAIL_FROM "$MAIL_FROM"
+config_append_scalar "$TMP_CONFIG" MAIL_TO "$MAIL_TO"
+config_append_array "$TMP_CONFIG" DAILY_SCAN_PATHS "$DAILY_SCAN_PATHS"
+config_append_array "$TMP_CONFIG" ONACCESS_PATHS "$ONACCESS_PATHS"
+config_append_scalar "$TMP_CONFIG" ONACCESS_PREVENTION "$ONACCESS_PREVENTION"
+config_append_scalar "$TMP_CONFIG" CLAMD_MAX_FILE_SIZE "$CLAMD_MAX_FILE_SIZE"
+config_append_scalar "$TMP_CONFIG" CLAMD_MAX_SCAN_SIZE "$CLAMD_MAX_SCAN_SIZE"
+config_append_scalar "$TMP_CONFIG" CLAMD_MAX_RECURSION "$CLAMD_MAX_RECURSION"
+config_append_scalar "$TMP_CONFIG" CLAMD_MAX_FILES "$CLAMD_MAX_FILES"
+config_append_scalar "$TMP_CONFIG" DETECT_PUA "$DETECT_PUA"
+config_append_scalar "$TMP_CONFIG" FRESHCLAM_CALENDAR "$FRESHCLAM_CALENDAR"
+config_append_scalar "$TMP_CONFIG" DAILY_SCAN_CALENDAR "$DAILY_SCAN_CALENDAR"
+config_append_scalar "$TMP_CONFIG" HEARTBEAT_CALENDAR "$HEARTBEAT_CALENDAR"
+config_append_scalar "$TMP_CONFIG" FRESHCLAM_RANDOM_DELAY "$FRESHCLAM_RANDOM_DELAY"
+config_append_scalar "$TMP_CONFIG" DAILY_SCAN_RANDOM_DELAY "$DAILY_SCAN_RANDOM_DELAY"
+config_append_scalar "$TMP_CONFIG" HEARTBEAT_RANDOM_DELAY "$HEARTBEAT_RANDOM_DELAY"
+config_append_scalar "$TMP_CONFIG" SCAN_LOG_RETENTION_DAYS "$SCAN_LOG_RETENTION_DAYS"
+config_append_scalar "$TMP_CONFIG" HEARTBEAT_JOURNAL_SINCE "$HEARTBEAT_JOURNAL_SINCE"
 
 SUMMARY="SMTP:        $SMTP_HOST:$SMTP_PORT ($SMTP_SECURITY)
 Absender:     $MAIL_FROM

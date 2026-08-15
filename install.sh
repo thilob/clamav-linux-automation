@@ -9,6 +9,20 @@ CLAM_USER="clamav-auto"
 CLAM_GROUP="clamav-auto"
 CONFIG_SOURCE=""
 FORCE_INSTALL=0
+GENERATED_CONFIG=""
+SMTP_OPTIONS_SET=0
+SMTP_HOST=""
+SMTP_PORT="587"
+SMTP_SECURITY="starttls"
+SMTP_USER=""
+SMTP_PASSWORD=""
+MAIL_FROM=""
+MAIL_TO=""
+
+cleanup() {
+    [[ -z "$GENERATED_CONFIG" ]] || rm -f -- "$GENERATED_CONFIG"
+}
+trap cleanup EXIT
 
 log() { printf '\n==> %s\n' "$*"; }
 die() { echo "FEHLER: $*" >&2; exit 1; }
@@ -18,10 +32,17 @@ die() { echo "FEHLER: $*" >&2; exit 1; }
 
 usage() {
     cat <<EOF
-Aufruf: $0 [--force-install] [--config-source DATEI]
+Aufruf: $0 [OPTIONEN]
 
   --force-install         nur inaktive Unit-Dateien/Templates bewusst übergehen
-  --config-source DATEI  geprüfte Konfiguration bei der Erstinstallation verwenden
+  --config-source DATEI   geprüfte Konfiguration der TUI/Automation verwenden
+  --smtp-host WERT        SMTP-Server (Pflicht ohne --config-source)
+  --smtp-port WERT        SMTP-Port (Standard: 587)
+  --smtp-security WERT    starttls, ssl oder plain (Standard: starttls)
+  --smtp-user WERT        SMTP-Benutzer; leer bedeutet keine Authentifizierung
+  --smtp-password WERT    SMTP-Passwort
+  --mail-from WERT        Mail-Absender (Pflicht ohne --config-source)
+  --mail-to WERT          Mail-Empfänger (Pflicht ohne --config-source)
 EOF
 }
 
@@ -36,6 +57,22 @@ while (( $# > 0 )); do
             CONFIG_SOURCE="$2"
             shift 2
             ;;
+        --smtp-host|--smtp-port|--smtp-security|--smtp-user|--smtp-password|--mail-from|--mail-to)
+            (( $# >= 2 )) || die "Für $1 fehlt ein Wert."
+            option="$1"
+            value="$2"
+            case "$option" in
+                --smtp-host) SMTP_HOST="$value" ;;
+                --smtp-port) SMTP_PORT="$value" ;;
+                --smtp-security) SMTP_SECURITY="$value" ;;
+                --smtp-user) SMTP_USER="$value" ;;
+                --smtp-password) SMTP_PASSWORD="$value" ;;
+                --mail-from) MAIL_FROM="$value" ;;
+                --mail-to) MAIL_TO="$value" ;;
+            esac
+            SMTP_OPTIONS_SET=1
+            shift 2
+            ;;
         -h|--help) usage; exit 0 ;;
         *) die "Unbekannte Option: $1" ;;
     esac
@@ -44,6 +81,8 @@ done
 [[ -z "$CONFIG_SOURCE" || -r "$CONFIG_SOURCE" ]] || \
     die "Konfigurationsquelle ist nicht lesbar: $CONFIG_SOURCE"
 if [[ -n "$CONFIG_SOURCE" ]]; then
+    (( SMTP_OPTIONS_SET == 0 )) || die \
+        "--config-source darf nicht mit einzelnen SMTP-Optionen kombiniert werden."
     bash -n "$CONFIG_SOURCE" || die "Konfigurationsquelle enthält ungültige Bash-Syntax."
 fi
 
@@ -51,6 +90,41 @@ fi
 PREFLIGHT_ARGS=()
 (( FORCE_INSTALL == 1 )) && PREFLIGHT_ARGS+=(--force-install)
 "$PROJECT_DIR/scripts/preflight-check.sh" "${PREFLIGHT_ARGS[@]}"
+
+if [[ -z "$CONFIG_SOURCE" && ! -e "$CONFIG_DIR/clamav-automation.conf" ]]; then
+    [[ -n "$SMTP_HOST" ]] || die "Für die Erstinstallation fehlt --smtp-host."
+    [[ -n "$MAIL_FROM" ]] || die "Für die Erstinstallation fehlt --mail-from."
+    [[ -n "$MAIL_TO" ]] || die "Für die Erstinstallation fehlt --mail-to."
+    if [[ ! "$SMTP_PORT" =~ ^[0-9]+$ ]] || (( SMTP_PORT < 1 || SMTP_PORT > 65535 )); then
+        die "SMTP-Port muss zwischen 1 und 65535 liegen."
+    fi
+    [[ "$SMTP_SECURITY" =~ ^(starttls|ssl|plain)$ ]] || die "Ungültige SMTP-Sicherheit."
+    [[ -z "$SMTP_USER" || -n "$SMTP_PASSWORD" ]] || die \
+        "Bei gesetztem --smtp-user muss auch --smtp-password angegeben werden."
+
+    # shellcheck source=scripts/config-functions.sh
+    source "$PROJECT_DIR/scripts/config-functions.sh"
+    GENERATED_CONFIG="$(mktemp /tmp/clamav-automation-install.XXXXXX)"
+    chmod 0600 "$GENERATED_CONFIG"
+    config_copy_without_keys \
+        "$PROJECT_DIR/config/clamav-automation.conf.example" "$GENERATED_CONFIG" \
+        SMTP_HOST SMTP_PORT SMTP_SECURITY SMTP_USER SMTP_PASSWORD MAIL_FROM MAIL_TO
+    {
+        echo
+        echo "# Während der Installation erfasste SMTP-Konfiguration"
+    } >>"$GENERATED_CONFIG"
+    config_append_scalar "$GENERATED_CONFIG" SMTP_HOST "$SMTP_HOST"
+    config_append_scalar "$GENERATED_CONFIG" SMTP_PORT "$SMTP_PORT"
+    config_append_scalar "$GENERATED_CONFIG" SMTP_SECURITY "$SMTP_SECURITY"
+    config_append_scalar "$GENERATED_CONFIG" SMTP_USER "$SMTP_USER"
+    config_append_scalar "$GENERATED_CONFIG" SMTP_PASSWORD "$SMTP_PASSWORD"
+    config_append_scalar "$GENERATED_CONFIG" MAIL_FROM "$MAIL_FROM"
+    config_append_scalar "$GENERATED_CONFIG" MAIL_TO "$MAIL_TO"
+    CONFIG_SOURCE="$GENERATED_CONFIG"
+fi
+if [[ -n "$CONFIG_SOURCE" ]]; then
+    bash -n "$CONFIG_SOURCE" || die "Die erzeugte Konfiguration enthält ungültige Bash-Syntax."
+fi
 
 # shellcheck source=/dev/null
 source /etc/os-release
@@ -259,11 +333,7 @@ systemctl list-timers 'clamav-auto-*' --no-pager || true
 
 if (( FIRST_INSTALL == 1 )); then
     echo
-    echo "WICHTIG:"
-    echo "  SMTP-Zugangsdaten sind noch Platzhalter."
-    echo "  Bearbeite:"
-    echo "    $CONFIG_DIR/clamav-automation.conf"
-    echo
-    echo "Danach testen:"
+    echo "SMTP-Zugangsdaten wurden in die geschützte Konfiguration übernommen."
+    echo "Jetzt testen:"
     echo "  sudo $LIBEXEC_DIR/clamav-selftest.sh"
 fi

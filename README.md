@@ -49,7 +49,14 @@ sudo ./install.sh --force-install
 ```bash
 unzip clamav-linux-automation.zip
 cd clamav-linux-automation
-sudo ./install.sh
+sudo ./install.sh \
+  --smtp-host 'smtp.example.org' \
+  --smtp-port 587 \
+  --smtp-security starttls \
+  --smtp-user 'clamav@example.org' \
+  --smtp-password 'GEHEIMES-PASSWORT' \
+  --mail-from 'clamav@example.org' \
+  --mail-to 'admin@example.org'
 ```
 
 ### Geführte Installation im AS/400-Stil
@@ -68,8 +75,11 @@ Zeitpläne und Protokollaufbewahrung ab. Vertrauliche Passwörter erscheinen wed
 in der Zusammenfassung noch auf dem Bildschirm. Benötigt wird das Programm
 `dialog` (`pacman -S dialog` beziehungsweise `dnf install dialog`).
 
-Bei der klassischen Installation anschließend unbedingt die SMTP-Konfiguration
-anpassen:
+Die klassische Installation übernimmt die SMTP-Daten ausschließlich aus diesen
+Kommandozeilenoptionen und schreibt sie direkt in die geschützte
+Konfigurationsdatei. Werte mit Sonderzeichen sollten in einfachen Anführungszeichen
+stehen. Achtung: Ein Passwort als Kommandozeilenargument kann in Shell-History und
+kurzzeitig in der Prozessliste sichtbar sein. Spätere Änderungen sind möglich mit:
 
 ```bash
 sudo editor /etc/clamav-automation/clamav-automation.conf

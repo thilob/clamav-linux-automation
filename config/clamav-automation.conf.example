@@ -14,18 +14,18 @@
 # SMTP
 ###############################################################################
 
-SMTP_HOST="smtp.example.org"
+SMTP_HOST=""
 SMTP_PORT="587"
 
 # starttls | ssl | plain
 SMTP_SECURITY="starttls"
 
 # Leer lassen, wenn der SMTP-Server keine Authentifizierung verlangt.
-SMTP_USER="clamav@example.org"
-SMTP_PASSWORD="CHANGE_ME"
+SMTP_USER=""
+SMTP_PASSWORD=""
 
-MAIL_FROM="clamav@example.org"
-MAIL_TO="admin@example.org"
+MAIL_FROM=""
+MAIL_TO=""
 
 ###############################################################################
 # Mailtexte
