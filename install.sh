@@ -248,6 +248,7 @@ log "Installiere Dateien"
 install -d -o root -g "$CLAM_GROUP" -m 0750 "$CONFIG_DIR"
 install -d -m 0755 "$LIBEXEC_DIR"
 install -d -o "$CLAM_USER" -g "$CLAM_GROUP" -m 0755 /var/lib/clamav
+install -d -o "$CLAM_USER" -g "$CLAM_GROUP" -m 0700 /var/lib/clamav/tmp
 install -d -m 0750 /var/log/clamav-automation
 
 if [[ ! -e "$CONFIG_DIR/clamav-automation.conf" ]]; then

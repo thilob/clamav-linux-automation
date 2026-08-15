@@ -50,6 +50,11 @@ sudo stat -c '%U:%G %a %n' \
 Erwartet werden `root:clamav-auto 750` für das Verzeichnis und
 `root:clamav-auto 640` für `clamd.conf`.
 
+Damit `/tmp` per On-Access-Scan überwacht werden kann, verwendet `clamd`
+`/var/lib/clamav/tmp` als eigenes temporäres Verzeichnis. Die Meldung
+`ClamOnAcc should not watch the directory clamd is using for temp files` weist
+darauf hin, dass diese Trennung in der laufenden Konfiguration fehlt.
+
 ## FreshClam
 
 Manuell:
@@ -94,6 +99,28 @@ sudo systemctl start clamav-auto-heartbeat.service
 
 ```bash
 sudo /usr/local/libexec/clamav-automation/clamav-mail.py --kind test
+```
+
+## EICAR-Erkennung testen
+
+Der interaktive Selbsttest kann eine EICAR-Testdatei in einem überwachten Pfad
+erzeugen:
+
+```bash
+sudo /usr/local/libexec/clamav-automation/clamav-selftest.sh
+```
+
+Bei der EICAR-Abfrage mit `j` bestätigen. Ein erfolgreicher Test erzeugt sowohl
+bei `clamd` als auch bei `clamonacc` eine Meldung `Eicar-Signature FOUND` und
+ruft das konfigurierte Virus-Event auf. Dadurch wird auch die Malwarefund-Mail
+ausgelöst. Die Testdatei wird anschließend entfernt.
+
+Kontrolle:
+
+```bash
+journalctl --since '5 minutes ago' --no-pager \
+  -u clamav-auto-clamd.service \
+  -u clamav-auto-onaccess.service | grep -i eicar
 ```
 
 ## On-Access

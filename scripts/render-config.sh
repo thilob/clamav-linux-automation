@@ -19,6 +19,7 @@ bool_value() {
 
 cat >"$CLAMD_CONF" <<EOF
 DatabaseDirectory /var/lib/clamav
+TemporaryDirectory /var/lib/clamav/tmp
 LocalSocket /run/clamav-automation/clamd.sock
 LocalSocketMode 0660
 FixStaleSocket yes
