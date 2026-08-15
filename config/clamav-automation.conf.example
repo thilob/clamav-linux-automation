@@ -1,0 +1,142 @@
+# /etc/clamav-automation/clamav-automation.conf
+#
+# Zentrale Konfiguration für clamav-linux-automation.
+# Nach der Installation:
+#   sudo editor /etc/clamav-automation/clamav-automation.conf
+#   sudo systemctl restart clamav-auto-clamd clamav-auto-onaccess
+#
+# Für Änderungen an Timer-Zeiten zusätzlich:
+#   sudo systemctl daemon-reload
+#   sudo systemctl restart clamav-auto-freshclam.timer \
+#       clamav-auto-scan.timer clamav-auto-heartbeat.timer
+
+###############################################################################
+# SMTP
+###############################################################################
+
+SMTP_HOST="smtp.example.org"
+SMTP_PORT="587"
+
+# starttls | ssl | plain
+SMTP_SECURITY="starttls"
+
+# Leer lassen, wenn der SMTP-Server keine Authentifizierung verlangt.
+SMTP_USER="clamav@example.org"
+SMTP_PASSWORD="CHANGE_ME"
+
+MAIL_FROM="clamav@example.org"
+MAIL_TO="admin@example.org"
+
+###############################################################################
+# Mailtexte
+###############################################################################
+
+VIRUS_MAIL_SUBJECT="[ClamAV] Malwarefund auf {hostname}"
+SCAN_ERROR_MAIL_SUBJECT="[ClamAV] Scanfehler auf {hostname}"
+HEARTBEAT_MAIL_SUBJECT="[ClamAV] Heartbeat von {hostname}"
+
+# Platzhalter:
+#   {hostname}
+#   {date}
+#   {virus}
+#   {file}
+#   {details}
+
+VIRUS_MAIL_TEXT='ClamAV hat auf {hostname} einen Malwarefund gemeldet.
+
+Zeit: {date}
+Signatur: {virus}
+Datei: {file}
+
+Details:
+{details}
+'
+
+SCAN_ERROR_MAIL_TEXT='Der tägliche ClamAV-Scan auf {hostname} ist fehlgeschlagen.
+
+Zeit: {date}
+
+Details:
+{details}
+'
+
+HEARTBEAT_MAIL_TEXT='ClamAV-Heartbeat von {hostname}
+
+Zeit: {date}
+
+Status und Journalmeldungen der letzten 24 Stunden:
+
+{details}
+'
+
+###############################################################################
+# Scanbereiche
+###############################################################################
+
+# Täglicher Scan.
+# Die Liste darf angepasst und erweitert werden.
+DAILY_SCAN_PATHS=(
+    "/home"
+    "/root"
+    "/etc"
+    "/usr/local"
+    "/opt"
+    "/srv"
+    "/var/www"
+    "/tmp"
+    "/var/tmp"
+)
+
+# On-Access-Überwachung.
+# "/" ist absichtlich NICHT zulässig.
+ONACCESS_PATHS=(
+    "/home"
+    "/tmp"
+    "/var/tmp"
+)
+
+# yes = Zugriff auf als schädlich erkannte Datei durch fanotify verhindern.
+# no  = nur erkennen und melden.
+ONACCESS_PREVENTION="no"
+
+###############################################################################
+# Scan-Optionen
+###############################################################################
+
+# Maximale Dateigröße/Scanmenge für clamd.
+CLAMD_MAX_FILE_SIZE="100M"
+CLAMD_MAX_SCAN_SIZE="500M"
+CLAMD_MAX_RECURSION="20"
+CLAMD_MAX_FILES="20000"
+
+# PUA-Erkennung kann False Positives erhöhen.
+DETECT_PUA="yes"
+
+# Optional: Regex-Ausschlüsse für clamdscan.
+# Beispiel:
+# DAILY_EXCLUDE_REGEX=(
+#     "^/var/lib/docker/"
+#     "^/var/lib/containers/"
+# )
+DAILY_EXCLUDE_REGEX=()
+
+###############################################################################
+# Zeitplanung
+###############################################################################
+
+# systemd OnCalendar-Syntax
+FRESHCLAM_CALENDAR="*-*-* 00,06,12,18:15:00"
+DAILY_SCAN_CALENDAR="*-*-* 02:30:00"
+HEARTBEAT_CALENDAR="*-*-* 06:45:00"
+
+# Zufallsverzögerung reduziert Lastspitzen bei mehreren Servern.
+FRESHCLAM_RANDOM_DELAY="10m"
+DAILY_SCAN_RANDOM_DELAY="30m"
+HEARTBEAT_RANDOM_DELAY="15m"
+
+###############################################################################
+# Logging
+###############################################################################
+
+SCAN_LOG_RETENTION_DAYS="30"
+HEARTBEAT_JOURNAL_SINCE="24 hours ago"

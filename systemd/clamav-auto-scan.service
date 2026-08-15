@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily ClamAV filesystem scan
+Requires=clamav-auto-clamd.service
+After=clamav-auto-clamd.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/libexec/clamav-automation/clamav-daily-scan.sh
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7

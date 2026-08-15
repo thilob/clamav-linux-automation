@@ -1,0 +1,19 @@
+[Unit]
+Description=ClamAV daemon for automation
+After=local-fs.target network.target
+RequiresMountsFor=/var/lib/clamav
+
+[Service]
+Type=simple
+RuntimeDirectory=clamav-automation
+RuntimeDirectoryMode=0770
+User=root
+Group=root
+ExecStartPre=/usr/bin/install -d -o clamav-auto -g clamav-auto -m 0770 /run/clamav-automation
+ExecStart=/usr/bin/clamd --foreground=yes --config-file=/etc/clamav-automation/clamd.conf
+ExecReload=/bin/kill -USR2 $MAINPID
+Restart=on-failure
+RestartSec=10s
+
+[Install]
+WantedBy=multi-user.target

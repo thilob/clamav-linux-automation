@@ -1,0 +1,8 @@
+[Unit]
+Description=Send daily ClamAV heartbeat mail
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/libexec/clamav-automation/clamav-heartbeat.sh

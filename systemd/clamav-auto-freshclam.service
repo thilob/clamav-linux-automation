@@ -1,0 +1,8 @@
+[Unit]
+Description=Update ClamAV signature database
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/freshclam --config-file=/etc/clamav-automation/freshclam.conf

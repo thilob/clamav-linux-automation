@@ -1,0 +1,228 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+PROJECT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+CONFIG_DIR="/etc/clamav-automation"
+LIBEXEC_DIR="/usr/local/libexec/clamav-automation"
+BACKUP_DIR="/var/backups/clamav-automation/$(date '+%Y%m%d-%H%M%S')"
+CLAM_USER="clamav-auto"
+CLAM_GROUP="clamav-auto"
+
+log() { printf '\n==> %s\n' "$*"; }
+die() { echo "FEHLER: $*" >&2; exit 1; }
+
+[[ $EUID -eq 0 ]] || die "Bitte als root ausführen."
+[[ -r /etc/os-release ]] || die "/etc/os-release fehlt."
+
+# shellcheck source=/dev/null
+source /etc/os-release
+DISTRO_ID="${ID,,}"
+DISTRO_LIKE="${ID_LIKE:-}"
+VERSION_MAJOR="${VERSION_ID%%.*}"
+
+install_arch() {
+    log "Installiere Pakete mit pacman"
+    pacman -Syu --needed --noconfirm clamav python ca-certificates
+}
+
+enable_epel() {
+    if rpm -q epel-release >/dev/null 2>&1; then
+        return
+    fi
+
+    case "$DISTRO_ID" in
+        rocky)
+            dnf install -y dnf-plugins-core
+            if [[ "$VERSION_MAJOR" =~ ^(9|10)$ ]]; then
+                dnf config-manager --set-enabled crb 2>/dev/null || \
+                    dnf config-manager --set-enabled CRB 2>/dev/null || true
+            fi
+            dnf install -y epel-release
+            ;;
+        rhel)
+            if command -v subscription-manager >/dev/null 2>&1; then
+                subscription-manager repos \
+                    --enable="codeready-builder-for-rhel-${VERSION_MAJOR}-$(arch)-rpms" \
+                    >/dev/null 2>&1 || true
+            fi
+            dnf install -y \
+              "https://dl.fedoraproject.org/pub/epel/epel-release-latest-${VERSION_MAJOR}.noarch.rpm"
+            ;;
+        *)
+            dnf install -y epel-release
+            ;;
+    esac
+}
+
+install_rhel_family() {
+    log "Aktiviere EPEL"
+    enable_epel
+
+    log "Installiere ClamAV-Pakete"
+    # EPEL splittet ClamAV in mehrere RPMs. Diese Menge deckt RHEL/Rocky 8/9/10
+    # ab; anschließend werden die tatsächlich benötigten Binaries verifiziert.
+    dnf install -y \
+        clamav \
+        clamav-update \
+        clamav-server \
+        clamav-server-systemd \
+        python3 \
+        ca-certificates \
+        policycoreutils-python-utils || true
+
+    # Fehlende Binaries über dnf provides gezielt nachinstallieren.
+    for binary in clamd clamdscan freshclam clamonacc; do
+        if ! command -v "$binary" >/dev/null 2>&1; then
+            log "Suche RPM für fehlendes Binary: $binary"
+            provider="$(dnf -q repoquery --whatprovides "*/$binary" --qf '%{name}' 2>/dev/null | head -n1 || true)"
+            [[ -n "$provider" ]] || die "Kein Paket für $binary gefunden."
+            dnf install -y "$provider"
+        fi
+    done
+}
+
+case "$DISTRO_ID" in
+    arch|manjaro)
+        install_arch
+        ;;
+    rocky|rhel)
+        install_rhel_family
+        ;;
+    *)
+        if [[ "$DISTRO_LIKE" == *arch* ]]; then
+            install_arch
+        elif [[ "$DISTRO_LIKE" == *rhel* || "$DISTRO_LIKE" == *fedora* ]]; then
+            install_rhel_family
+        else
+            die "Nicht unterstützte Distribution: ${PRETTY_NAME:-$DISTRO_ID}"
+        fi
+        ;;
+esac
+
+for binary in clamd clamdscan freshclam clamonacc python3 systemctl journalctl; do
+    command -v "$binary" >/dev/null 2>&1 || die "Nach Installation fehlt: $binary"
+done
+
+log "Erkannte Version: $(clamscan --version 2>/dev/null || clamdscan --version)"
+
+if ! getent group "$CLAM_GROUP" >/dev/null; then
+    groupadd --system "$CLAM_GROUP"
+fi
+
+if ! id "$CLAM_USER" >/dev/null 2>&1; then
+    useradd --system \
+        --gid "$CLAM_GROUP" \
+        --home-dir /var/lib/clamav \
+        --no-create-home \
+        --shell /usr/sbin/nologin \
+        "$CLAM_USER"
+fi
+
+log "Sichere ggf. vorhandene Automation-Konfiguration"
+mkdir -p "$BACKUP_DIR"
+for path in "$CONFIG_DIR" \
+            /etc/systemd/system/clamav-auto-clamd.service \
+            /etc/systemd/system/clamav-auto-onaccess.service \
+            /etc/systemd/system/clamav-auto-freshclam.service \
+            /etc/systemd/system/clamav-auto-scan.service \
+            /etc/systemd/system/clamav-auto-heartbeat.service; do
+    [[ -e "$path" ]] && cp -a "$path" "$BACKUP_DIR/" || true
+done
+
+log "Installiere Dateien"
+install -d -m 0750 "$CONFIG_DIR"
+install -d -m 0755 "$LIBEXEC_DIR"
+install -d -o "$CLAM_USER" -g "$CLAM_GROUP" -m 0755 /var/lib/clamav
+install -d -m 0750 /var/log/clamav-automation
+
+if [[ ! -e "$CONFIG_DIR/clamav-automation.conf" ]]; then
+    install -m 0640 -o root -g "$CLAM_GROUP" \
+        "$PROJECT_DIR/config/clamav-automation.conf.example" \
+        "$CONFIG_DIR/clamav-automation.conf"
+    FIRST_INSTALL=1
+else
+    FIRST_INSTALL=0
+    chown root:"$CLAM_GROUP" "$CONFIG_DIR/clamav-automation.conf"
+    chmod 0640 "$CONFIG_DIR/clamav-automation.conf"
+fi
+
+install -m 0755 "$PROJECT_DIR/scripts/clamav-mail.py" "$LIBEXEC_DIR/"
+install -m 0755 "$PROJECT_DIR/scripts/clamav-virus-event.sh" "$LIBEXEC_DIR/"
+install -m 0755 "$PROJECT_DIR/scripts/clamav-daily-scan.sh" "$LIBEXEC_DIR/"
+install -m 0755 "$PROJECT_DIR/scripts/clamav-heartbeat.sh" "$LIBEXEC_DIR/"
+install -m 0755 "$PROJECT_DIR/scripts/clamav-selftest.sh" "$LIBEXEC_DIR/"
+install -m 0755 "$PROJECT_DIR/scripts/render-config.sh" "$LIBEXEC_DIR/"
+
+for unit in "$PROJECT_DIR"/systemd/*.service; do
+    install -m 0644 "$unit" /etc/systemd/system/
+done
+
+# Die Unit-Dateien referenzieren /usr/bin. Auf den unterstützten Distributionen
+# liegen die ClamAV-Binaries derzeit dort. Falls nicht, werden lokale Symlinks
+# gesetzt, ohne Paketdateien zu überschreiben.
+for binary in clamd clamdscan freshclam clamonacc; do
+    actual="$(command -v "$binary")"
+    if [[ "$actual" != "/usr/bin/$binary" && ! -e "/usr/bin/$binary" ]]; then
+        ln -s "$actual" "/usr/bin/$binary"
+    fi
+done
+
+log "Deaktiviere konkurrierende Distributionsdienste, falls vorhanden"
+for unit in \
+    clamav-freshclam.service \
+    clamav-freshclam-once.timer \
+    clamav-daemon.service \
+    clamd@scan.service \
+    freshclam.service \
+    freshclam.timer; do
+    systemctl disable --now "$unit" >/dev/null 2>&1 || true
+done
+
+log "Erzeuge ClamAV- und Timer-Konfiguration"
+"$LIBEXEC_DIR/render-config.sh"
+
+# clamd soll die Signaturdatenbank lesen können; freshclam soll sie aktualisieren.
+chown -R "$CLAM_USER:$CLAM_GROUP" /var/lib/clamav
+
+if command -v getenforce >/dev/null 2>&1 && [[ "$(getenforce)" != "Disabled" ]]; then
+    log "Konfiguriere SELinux-Grundeinstellung für Virenscanner"
+    setsebool -P antivirus_can_scan_system 1 2>/dev/null || true
+    restorecon -RF /var/lib/clamav "$CONFIG_DIR" "$LIBEXEC_DIR" /var/log/clamav-automation \
+        2>/dev/null || true
+fi
+
+log "Initiales Signaturupdate"
+systemctl daemon-reload
+if ! systemctl start clamav-auto-freshclam.service; then
+    journalctl -u clamav-auto-freshclam.service -n 50 --no-pager || true
+    die "Initiales freshclam-Update fehlgeschlagen."
+fi
+
+log "Aktiviere Dienste und Timer"
+systemctl enable --now clamav-auto-clamd.service
+systemctl enable --now clamav-auto-onaccess.service
+systemctl enable --now clamav-auto-freshclam.timer
+systemctl enable --now clamav-auto-scan.timer
+systemctl enable --now clamav-auto-heartbeat.timer
+
+echo
+echo "============================================================"
+echo " ClamAV Automation installiert"
+echo "============================================================"
+echo "Distribution : ${PRETTY_NAME:-$DISTRO_ID}"
+echo "Konfiguration: $CONFIG_DIR/clamav-automation.conf"
+echo "Selftest     : $LIBEXEC_DIR/clamav-selftest.sh"
+echo "Backup       : $BACKUP_DIR"
+echo
+systemctl list-timers 'clamav-auto-*' --no-pager || true
+
+if (( FIRST_INSTALL == 1 )); then
+    echo
+    echo "WICHTIG:"
+    echo "  SMTP-Zugangsdaten sind noch Platzhalter."
+    echo "  Bearbeite:"
+    echo "    $CONFIG_DIR/clamav-automation.conf"
+    echo
+    echo "Danach testen:"
+    echo "  sudo $LIBEXEC_DIR/clamav-selftest.sh"
+fi

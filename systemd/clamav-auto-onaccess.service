@@ -1,0 +1,17 @@
+[Unit]
+Description=ClamAV On-Access scanner (clamonacc)
+Requires=clamav-auto-clamd.service
+After=clamav-auto-clamd.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/clamonacc --foreground --config-file=/etc/clamav-automation/clamd.conf
+Restart=on-failure
+RestartSec=10s
+
+# clamonacc benötigt für fanotify erhöhte Rechte.
+User=root
+Group=root
+
+[Install]
+WantedBy=multi-user.target
