@@ -116,5 +116,7 @@ RandomizedDelaySec=${HEARTBEAT_RANDOM_DELAY:-15m}
 WantedBy=timers.target
 EOF
 
-chmod 0644 "$CLAMD_CONF" /etc/clamav-automation/freshclam.conf
+chown root:clamav-auto "$CLAMD_CONF"
+chmod 0640 "$CLAMD_CONF"
+chmod 0644 /etc/clamav-automation/freshclam.conf
 systemctl daemon-reload

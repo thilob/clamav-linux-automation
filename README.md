@@ -7,6 +7,7 @@ Ein distributionsübergreifendes Setup für **Arch Linux, Manjaro, RHEL und Rock
 - automatische Erkennung der Distribution
 - Installation von ClamAV und `clamonacc`
 - dauerhafter `clamd`
+- Bereitschaftsprüfung des `clamd`-Sockets vor dem Start von `clamonacc`
 - dauerhafter On-Access-Scanner (`clamonacc`/fanotify)
 - Signaturupdate viermal täglich, also alle sechs Stunden
 - täglicher sinnvoll eingegrenzter Dateiscan
@@ -98,6 +99,12 @@ MAIL_TO="admin@example.org"
 ```
 
 Die Konfigurationsdatei wird mit `0640 root:clamav-auto` installiert.
+
+Beim ersten Start lädt `clamd` mehrere Millionen Signaturen in den
+Arbeitsspeicher. Je nach CPU, Datenträger und Datenbankgröße kann das ungefähr
+30 bis 180 Sekunden dauern. Der Installer zeigt währenddessen regelmäßig einen
+Wartestatus an und startet `clamonacc` erst, wenn der projektspezifische Socket
+erfolgreich auf einen Ping antwortet.
 
 ## SMTP-Modi
 
@@ -296,6 +303,7 @@ Die tägliche Heartbeat-Mail enthält:
 - Status der ClamAV-Dienste
 - Status der Timer
 - ClamAV-Version
+- Erreichbarkeit des projektspezifischen `clamd`-Sockets
 - Übersicht der Signaturdateien
 - Journalmeldungen von `clamd`, `clamonacc`, FreshClam und Daily Scan der
   letzten 24 Stunden

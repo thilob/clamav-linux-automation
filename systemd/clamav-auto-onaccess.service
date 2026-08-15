@@ -5,6 +5,8 @@ After=clamav-auto-clamd.service
 
 [Service]
 Type=simple
+TimeoutStartSec=210
+ExecStartPre=/usr/local/libexec/clamav-automation/clamav-wait-for-clamd.sh 180
 ExecStart=/usr/bin/clamonacc --foreground --config-file=/etc/clamav-automation/clamd.conf
 Restart=on-failure
 RestartSec=10s

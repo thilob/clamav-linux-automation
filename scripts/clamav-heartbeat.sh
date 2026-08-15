@@ -26,7 +26,15 @@ DETAILS="$(
 
         echo
         echo "=== ClamAV-Version ==="
-        clamdscan --version 2>&1 || true
+        clamd --version 2>&1 || true
+
+        echo
+        echo "=== clamd-Verbindung ==="
+        if clamdscan --config-file=/etc/clamav-automation/clamd.conf --ping=1 >/dev/null 2>&1; then
+            echo "OK: clamd antwortet über /run/clamav-automation/clamd.sock"
+        else
+            echo "FEHLER: clamd antwortet nicht über /run/clamav-automation/clamd.sock"
+        fi
 
         echo
         echo "=== Signaturdateien ==="

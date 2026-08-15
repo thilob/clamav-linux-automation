@@ -245,7 +245,7 @@ for path in "$CONFIG_DIR" \
 done
 
 log "Installiere Dateien"
-install -d -m 0750 "$CONFIG_DIR"
+install -d -o root -g "$CLAM_GROUP" -m 0750 "$CONFIG_DIR"
 install -d -m 0755 "$LIBEXEC_DIR"
 install -d -o "$CLAM_USER" -g "$CLAM_GROUP" -m 0755 /var/lib/clamav
 install -d -m 0750 /var/log/clamav-automation
@@ -266,6 +266,7 @@ install -m 0755 "$PROJECT_DIR/scripts/clamav-virus-event.sh" "$LIBEXEC_DIR/"
 install -m 0755 "$PROJECT_DIR/scripts/clamav-daily-scan.sh" "$LIBEXEC_DIR/"
 install -m 0755 "$PROJECT_DIR/scripts/clamav-heartbeat.sh" "$LIBEXEC_DIR/"
 install -m 0755 "$PROJECT_DIR/scripts/clamav-selftest.sh" "$LIBEXEC_DIR/"
+install -m 0755 "$PROJECT_DIR/scripts/clamav-wait-for-clamd.sh" "$LIBEXEC_DIR/"
 install -m 0755 "$PROJECT_DIR/scripts/render-config.sh" "$LIBEXEC_DIR/"
 
 for unit in "$PROJECT_DIR"/systemd/*.service; do
@@ -315,10 +316,27 @@ fi
 
 log "Aktiviere Dienste und Timer"
 systemctl enable --now clamav-auto-clamd.service
+
+log "Warte auf Betriebsbereitschaft von clamd"
+if ! "$LIBEXEC_DIR/clamav-wait-for-clamd.sh" 180; then
+    journalctl -u clamav-auto-clamd.service -n 80 --no-pager || true
+    die "clamd wurde gestartet, ist aber nicht betriebsbereit."
+fi
+if ! systemctl is-active --quiet clamav-auto-clamd.service; then
+    journalctl -u clamav-auto-clamd.service -n 80 --no-pager || true
+    die "clamav-auto-clamd.service ist nach dem Start nicht aktiv."
+fi
+
+log "Aktiviere On-Access-Scanner und Timer"
 systemctl enable --now clamav-auto-onaccess.service
 systemctl enable --now clamav-auto-freshclam.timer
 systemctl enable --now clamav-auto-scan.timer
 systemctl enable --now clamav-auto-heartbeat.timer
+
+if ! systemctl is-active --quiet clamav-auto-onaccess.service; then
+    journalctl -u clamav-auto-onaccess.service -n 80 --no-pager || true
+    die "clamav-auto-onaccess.service ist nach dem Start nicht aktiv."
+fi
 
 echo
 echo "============================================================"

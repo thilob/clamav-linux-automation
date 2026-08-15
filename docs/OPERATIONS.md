@@ -9,6 +9,47 @@ sudo systemctl status clamav-auto-clamd clamav-auto-onaccess
 sudo /usr/local/libexec/clamav-automation/clamav-selftest.sh
 ```
 
+## clamd-Start und Bereitschaft
+
+`clamd` lädt beim Start die vollständige Signaturdatenbank in den Arbeitsspeicher.
+Bei mehreren Millionen Signaturen sind 30 bis 180 Sekunden Startzeit möglich.
+Der Fortschritt ist im Journal sichtbar:
+
+```bash
+journalctl -fu clamav-auto-clamd.service
+```
+
+Ein erfolgreicher Start enthält nacheinander Meldungen wie `Reading databases`,
+`Loaded ... signatures` und `Unix socket file /run/clamav-automation/clamd.sock`.
+Die tatsächliche Erreichbarkeit lässt sich mit dem installierten Helfer prüfen:
+
+```bash
+sudo /usr/local/libexec/clamav-automation/clamav-wait-for-clamd.sh 180
+```
+
+Direkt mit `clamdscan` muss bei ClamAV 1.5 die Anzahl der Ping-Versuche angegeben
+werden:
+
+```bash
+sudo clamdscan \
+  --config-file=/etc/clamav-automation/clamd.conf \
+  --ping=1
+```
+
+`--ping` ohne Argument ist ungültig und darf nicht als Bereitschaftsprüfung
+verwendet werden.
+
+Falls `Can't open/parse the config file` erscheint, Rechte kontrollieren:
+
+```bash
+sudo stat -c '%U:%G %a %n' \
+  /etc/clamav-automation \
+  /etc/clamav-automation/clamd.conf
+```
+
+Erwartet werden `root:clamav-auto 750` für das Verzeichnis und
+`root:clamav-auto 640` für `clamd.conf`.
+
 ## FreshClam
 
 Manuell:

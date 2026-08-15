@@ -31,6 +31,7 @@ for f in \
     config/clamav-automation.conf.example \
     config/dialogrc-as400 \
     scripts/config-functions.sh \
+    scripts/clamav-wait-for-clamd.sh \
     scripts/preflight-check.sh \
     systemd/clamav-auto-clamd.service \
     systemd/clamav-auto-onaccess.service \

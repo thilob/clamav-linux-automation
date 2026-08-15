@@ -71,10 +71,10 @@ else
     failure "freshclam nicht ausführbar"
 fi
 
-if clamdscan --config-file=/etc/clamav-automation/clamd.conf --ping >/dev/null 2>&1; then
+if clamdscan --config-file=/etc/clamav-automation/clamd.conf --ping=1 >/dev/null 2>&1; then
     pass "clamd antwortet"
 else
-    failure "clamd antwortet nicht auf clamdscan --ping"
+    failure "clamd antwortet nicht auf clamdscan --ping=1"
 fi
 
 if command -v getenforce >/dev/null 2>&1; then
