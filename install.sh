@@ -54,9 +54,12 @@ PREFLIGHT_ARGS=()
 
 # shellcheck source=/dev/null
 source /etc/os-release
-DISTRO_ID="${ID,,}"
+DISTRO_ID_RAW="${ID:-}"
+[[ -n "$DISTRO_ID_RAW" ]] || die "/etc/os-release enthält keine Distributions-ID (ID)."
+DISTRO_ID="${DISTRO_ID_RAW,,}"
 DISTRO_LIKE="${ID_LIKE:-}"
-VERSION_MAJOR="${VERSION_ID%%.*}"
+VERSION_ID_VALUE="${VERSION_ID:-}"
+VERSION_MAJOR="${VERSION_ID_VALUE%%.*}"
 
 install_arch() {
     log "Installiere Pakete mit pacman"
