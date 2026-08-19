@@ -142,6 +142,13 @@ SECURITY_CHECK_NETWORK="$(menu_choice "SECURITY AUDIT" "Listening Sockets mit Ba
     false "Netzwerkprüfung deaktiviert" true "Netzwerkprüfung aktiviert")" || exit 1
 SECURITY_CHECK_YARA="$(menu_choice "SECURITY AUDIT" "Optionale lokale YARA-Regeln verwenden?" "true" \
     true "YARA verwenden, falls installiert" false "YARA deaktivieren")" || exit 1
+if dialog --clear --backtitle "$BACKTITLE" --title "YARA CORE-REGELN" \
+    --yes-label "Ja" --no-label "Nein" --defaultno \
+    --yesno "Aktuelle YARA-Forge-Core-Regeln herunterladen, prüfen und installieren?\n\nQuelle: github.com/YARAHQ/yara-forge\nZiel: /etc/clamav-security/yara/yara-forge-core.yar" 14 76; then
+    INSTALL_YARA_CORE=1
+else
+    INSTALL_YARA_CORE=0
+fi
 SECURITY_AUDIT_DAILY_CALENDAR="$(inputbox "AUDIT-ZEITPLAN" "Täglicher Security Audit (systemd OnCalendar)" "*-*-* 03:40:00")" || exit 1
 SECURITY_AUDIT_WEEKLY_CALENDAR="$(inputbox "AUDIT-ZEITPLAN" "Wöchentlicher Security Audit (systemd OnCalendar)" "Sun *-*-* 04:30:00")" || exit 1
 
@@ -204,6 +211,7 @@ Scanzeit:     $DAILY_SCAN_CALENDAR
 Heartbeat:    $HEARTBEAT_CALENDAR
 Audit Daily:  $SECURITY_AUDIT_ENABLED / $SECURITY_AUDIT_DAILY_CALENDAR
 Audit Weekly: $SECURITY_AUDIT_WEEKLY_ENABLED / $SECURITY_AUDIT_WEEKLY_CALENDAR
+YARA Core:    $([[ $INSTALL_YARA_CORE -eq 1 ]] && echo installieren || echo nicht installieren)
 
 Das SMTP-Passwort wird aus Sicherheitsgründen nicht angezeigt."
 
@@ -212,4 +220,5 @@ dialog --clear --backtitle "$BACKTITLE" --title "INSTALLATION BESTÄTIGEN" \
 clear
 INSTALL_ARGS=(--config-source "$TMP_CONFIG")
 (( FORCE_INSTALL == 1 )) && INSTALL_ARGS+=(--force-install)
+(( INSTALL_YARA_CORE == 1 )) && INSTALL_ARGS+=(--install-yara-core)
 "$PROJECT_DIR/install.sh" "${INSTALL_ARGS[@]}"

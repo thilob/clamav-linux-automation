@@ -104,6 +104,27 @@ Log:
 journalctl -u clamav-auto-scan.service -n 100 --no-pager
 ```
 
+## YARA-Forge-Core-Regeln
+
+Die optionale Installation beziehungsweise Aktualisierung erfolgt zusammen mit
+einem Projektupgrade:
+
+```bash
+sudo ./install.sh --upgrade --install-yara-core
+```
+
+Installierte Datei und lokale Prüfsumme kontrollieren:
+
+```bash
+sudo sha256sum -c /etc/clamav-security/yara/yara-forge-core.yar.sha256 \
+  --ignore-missing
+sudo yara -w /etc/clamav-security/yara/yara-forge-core.yar /dev/null
+```
+
+Der zweite Befehl kompiliert den vollständigen Regelsatz und kann einige Zeit
+benötigen. Die Regeln werden nicht automatisch unabhängig vom Projektupgrade
+aktualisiert; dadurch ändert sich der Audit-Regelbestand nicht unbemerkt.
+
 Detailprotokoll:
 
 ```bash

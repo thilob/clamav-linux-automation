@@ -18,6 +18,7 @@ Ein distributionsübergreifendes Setup für **Debian, Arch Linux, Manjaro, RHEL 
 - zentrale Konfiguration
 - systemd-Timer
 - interaktiver Selbsttest inkl. optionalem SMTP- und EICAR-Test
+- optionaler Download der kuratierten YARA-Forge-Core-Regeln
 - Uninstaller
 - keine automatische Löschung oder Quarantäne
 
@@ -106,6 +107,38 @@ MAIL_TO="admin@example.org"
 ```
 
 Die Konfigurationsdatei wird mit `0640 root:clamav-auto` installiert.
+
+### YARA-Forge-Core-Regeln
+
+Die TUI fragt, ob das aktuelle Core-Regelpaket von
+[YARA Forge](https://github.com/YARAHQ/yara-forge/releases) heruntergeladen und
+installiert werden soll. Bei der klassischen Installation wird dies explizit
+aktiviert mit:
+
+```bash
+sudo ./install.sh --install-yara-core \
+  --smtp-host 'smtp.example.org' \
+  --mail-from 'clamav@example.org' \
+  --mail-to 'admin@example.org'
+```
+
+Für eine vorhandene Projektinstallation:
+
+```bash
+sudo ./install.sh --upgrade --install-yara-core
+```
+
+Falls nötig, wird das Distributionspaket `yara` installiert. Das Archiv wird
+über HTTPS aus dem offiziellen neuesten GitHub-Release geladen, als ZIP geprüft,
+die enthaltene Datei `packages/core/yara-rules-core.yar` vollständig mit YARA
+kompiliert und erst danach als
+`/etc/clamav-security/yara/yara-forge-core.yar` installiert. Daneben wird eine
+lokale SHA-256-Datei abgelegt. Da YARA Forge keine separate Release-Prüfsumme
+veröffentlicht, belegt diese Prüfsumme lokale Änderungen, ist aber kein
+zusätzlicher Herkunftsnachweis.
+
+Das Core-Paket umfasst mehrere tausend Regeln. Wöchentliche YARA-Audits können
+dadurch – insbesondere bei großen `/home`-Beständen – deutlich länger dauern.
 
 Beim ersten Start lädt `clamd` mehrere Millionen Signaturen in den
 Arbeitsspeicher. Je nach CPU, Datenträger und Datenbankgröße kann das ungefähr

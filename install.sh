@@ -12,6 +12,7 @@ CLAM_DATABASE_DIR="$CLAM_STATE_DIR/database"
 CONFIG_SOURCE=""
 FORCE_INSTALL=0
 UPGRADE=0
+INSTALL_YARA_CORE=0
 GENERATED_CONFIG=""
 SMTP_OPTIONS_SET=0
 SMTP_HOST=""
@@ -39,6 +40,7 @@ Aufruf: $0 [OPTIONEN]
 
   --force-install         nur inaktive Unit-Dateien/Templates bewusst übergehen
   --upgrade               vorhandene ClamAV-Automation sicher aktualisieren
+  --install-yara-core     aktuelle YARA-Forge-Core-Regeln installieren
   --config-source DATEI   geprüfte Konfiguration der TUI/Automation verwenden
   --smtp-host WERT        SMTP-Server (Pflicht ohne --config-source)
   --smtp-port WERT        SMTP-Port (Standard: 587)
@@ -58,6 +60,10 @@ while (( $# > 0 )); do
             ;;
         --upgrade)
             UPGRADE=1
+            shift
+            ;;
+        --install-yara-core)
+            INSTALL_YARA_CORE=1
             shift
             ;;
         --config-source)
@@ -90,7 +96,9 @@ if (( UPGRADE == 1 )); then
     (( FORCE_INSTALL == 0 && SMTP_OPTIONS_SET == 0 )) || \
         die "--upgrade darf nicht mit Installations- oder SMTP-Optionen kombiniert werden."
     [[ -z "$CONFIG_SOURCE" ]] || die "--upgrade darf nicht mit --config-source kombiniert werden."
-    exec "$PROJECT_DIR/scripts/upgrade-installation.sh"
+    UPGRADE_ARGS=()
+    (( INSTALL_YARA_CORE == 1 )) && UPGRADE_ARGS+=(--install-yara-core)
+    exec "$PROJECT_DIR/scripts/upgrade-installation.sh" "${UPGRADE_ARGS[@]}"
 fi
 
 [[ -z "$CONFIG_SOURCE" || -r "$CONFIG_SOURCE" ]] || \
@@ -242,6 +250,16 @@ case "$DISTRO_ID" in
         ;;
 esac
 
+if (( INSTALL_YARA_CORE == 1 )) && ! command -v yara >/dev/null 2>&1; then
+    log "Installiere YARA für die Core-Regeln"
+    case "$DISTRO_ID" in
+        debian) apt-get install -y --no-install-recommends yara ;;
+        arch|manjaro) pacman -S --needed --noconfirm yara ;;
+        rocky|rhel) dnf install -y yara ;;
+        *) die "YARA-Paketinstallation ist für diese Distribution nicht definiert." ;;
+    esac
+fi
+
 for binary in clamd clamdscan freshclam clamonacc python3 systemctl journalctl flock sha256sum; do
     command -v "$binary" >/dev/null 2>&1 || die "Nach Installation fehlt: $binary"
 done
@@ -301,6 +319,7 @@ install -m 0755 "$PROJECT_DIR/scripts/clamav-heartbeat.sh" "$LIBEXEC_DIR/"
 install -m 0755 "$PROJECT_DIR/scripts/clamav-selftest.sh" "$LIBEXEC_DIR/"
 install -m 0755 "$PROJECT_DIR/scripts/clamav-wait-for-clamd.sh" "$LIBEXEC_DIR/"
 install -m 0755 "$PROJECT_DIR/scripts/security-audit.sh" "$LIBEXEC_DIR/"
+install -m 0755 "$PROJECT_DIR/scripts/install-yara-core-rules.sh" "$LIBEXEC_DIR/"
 install -m 0755 "$PROJECT_DIR/scripts/render-config.sh" "$LIBEXEC_DIR/"
 
 for unit in "$PROJECT_DIR"/systemd/*.service; do
@@ -343,6 +362,11 @@ for database in "${existing_databases[@]}"; do
 done
 shopt -u nullglob
 chown -R "$CLAM_USER:$CLAM_GROUP" "$CLAM_STATE_DIR"
+
+if (( INSTALL_YARA_CORE == 1 )); then
+    log "Lade und installiere YARA-Forge-Core-Regeln"
+    "$LIBEXEC_DIR/install-yara-core-rules.sh"
+fi
 
 if command -v getenforce >/dev/null 2>&1 && [[ "$(getenforce)" != "Disabled" ]]; then
     log "Konfiguriere SELinux-Grundeinstellung für Virenscanner"

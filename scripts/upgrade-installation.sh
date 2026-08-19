@@ -11,9 +11,17 @@ BACKUP_DIR="/var/backups/clamav-automation/$(date '+%Y%m%d-%H%M%S')-upgrade"
 CLAM_USER="clamav-auto"
 CLAM_GROUP="clamav-auto"
 FRESHCLAM_OK=1
+INSTALL_YARA_CORE=0
 
 log() { printf '\n==> %s\n' "$*"; }
 die() { echo "FEHLER: $*" >&2; exit 1; }
+
+if (( $# > 1 )); then
+    die "Aufruf: $0 [--install-yara-core]"
+elif (( $# == 1 )); then
+    [[ "$1" == "--install-yara-core" ]] || die "Unbekannte Option: $1"
+    INSTALL_YARA_CORE=1
+fi
 
 [[ $EUID -eq 0 ]] || die "Bitte als root ausführen."
 [[ -r "$CONFIG_DIR/clamav-automation.conf" ]] || \
@@ -53,6 +61,22 @@ for unit in "$PROJECT_DIR"/systemd/*.service; do
     install -m 0644 "$unit" /etc/systemd/system/
 done
 "$LIBEXEC_DIR/render-config.sh"
+
+if (( INSTALL_YARA_CORE == 1 )); then
+    if ! command -v yara >/dev/null 2>&1; then
+        [[ -r /etc/os-release ]] || die "/etc/os-release fehlt."
+        # shellcheck source=/dev/null
+        source /etc/os-release
+        case "${ID,,}" in
+            debian) apt-get update; apt-get install -y --no-install-recommends yara ;;
+            arch|manjaro) pacman -S --needed --noconfirm yara ;;
+            rocky|rhel) dnf install -y yara ;;
+            *) die "YARA-Paketinstallation ist für diese Distribution nicht definiert." ;;
+        esac
+    fi
+    log "Lade und installiere YARA-Forge-Core-Regeln"
+    "$LIBEXEC_DIR/install-yara-core-rules.sh"
+fi
 
 if command -v getenforce >/dev/null 2>&1 && [[ "$(getenforce)" != "Disabled" ]]; then
     restorecon -RF "$STATE_DIR" "$CONFIG_DIR" "$LIBEXEC_DIR" 2>/dev/null || true

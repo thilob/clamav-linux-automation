@@ -39,6 +39,7 @@ for f in \
     config/clamav-automation.conf.example \
     config/dialogrc-as400 \
     scripts/config-functions.sh \
+    scripts/install-yara-core-rules.sh \
     scripts/upgrade-installation.sh \
     scripts/clamav-wait-for-clamd.sh \
     scripts/security-audit.sh \
@@ -53,6 +54,11 @@ for f in \
     systemd/clamav-auto-security-weekly.service; do
     [[ -f "$ROOT/$f" ]] || { echo "FEHLT: $f" >&2; exit 1; }
 done
+
+echo "Prüfe YARA-Forge-Core-Integration..."
+grep -q 'yara-forge-rules-core.zip' "$ROOT/scripts/install-yara-core-rules.sh"
+grep -q -- '--install-yara-core' "$ROOT/install.sh"
+grep -q -- '--install-yara-core' "$ROOT/install-tui.sh"
 
 echo "Prüfe Security-Audit-Dry-Run..."
 SECURITY_AUDIT_CONFIG="$ROOT/tests/security-audit-test.conf" \
