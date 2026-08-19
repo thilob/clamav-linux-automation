@@ -371,6 +371,10 @@ fi
 if command -v getenforce >/dev/null 2>&1 && [[ "$(getenforce)" != "Disabled" ]]; then
     log "Konfiguriere SELinux-Grundeinstellung für Virenscanner"
     setsebool -P antivirus_can_scan_system 1 2>/dev/null || true
+    if command -v semanage >/dev/null 2>&1 && [[ -d /var/lib/clamav ]]; then
+        semanage fcontext -a -e /var/lib/clamav "$CLAM_STATE_DIR" 2>/dev/null || \
+            semanage fcontext -m -e /var/lib/clamav "$CLAM_STATE_DIR"
+    fi
     restorecon -RF "$CLAM_STATE_DIR" "$CONFIG_DIR" "$LIBEXEC_DIR" /var/log/clamav-automation \
         2>/dev/null || true
 fi

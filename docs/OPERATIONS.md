@@ -60,6 +60,12 @@ sudo clamdscan \
 `--ping` ohne Argument ist ungültig und darf nicht als Bereitschaftsprüfung
 verwendet werden.
 
+`clamonacc` läuft für Fanotify als root, während `clamd` als `clamav-auto`
+arbeitet. Die Projekt-Unit verwendet deshalb `--fdpass` und übergibt geöffnete
+Dateideskriptoren an den Daemon. Ohne diese Option erscheinen bei privaten
+Home-Verzeichnissen trotz laufender Dienste Meldungen wie `File path check
+failure: Permission denied`.
+
 Falls `Can't open/parse the config file` erscheint, Rechte kontrollieren:
 
 ```bash
@@ -215,6 +221,27 @@ sudo systemctl restart clamav-auto-freshclam.timer \
 ```
 
 ## SELinux
+
+Auf RHEL/Rocky übernimmt der Installer die vorhandene SELinux-Pfadzuordnung von
+`/var/lib/clamav` dauerhaft für `/var/lib/clamav-automation`. Ein lediglich mit
+`restorecon` behandeltes Projektverzeichnis behält sonst den generischen Typ
+`var_lib_t`; Freshclam kann dann trotz korrekter Unix-Rechte kein Verzeichnis
+`database/tmp.*` erzeugen.
+
+Manuelle Reparatur einer bereits betroffenen Installation:
+
+```bash
+sudo semanage fcontext -a -e /var/lib/clamav /var/lib/clamav-automation
+sudo restorecon -RFv /var/lib/clamav-automation
+sudo systemctl start clamav-auto-freshclam.service
+```
+
+Falls die Zuordnung bereits existiert, wird sie statt mit `-a` aktualisiert:
+
+```bash
+sudo semanage fcontext -m -e /var/lib/clamav /var/lib/clamav-automation
+sudo restorecon -RFv /var/lib/clamav-automation
+```
 
 ```bash
 getenforce
