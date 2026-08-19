@@ -33,6 +33,7 @@ for f in \
     config/clamav-automation.conf.example \
     config/dialogrc-as400 \
     scripts/config-functions.sh \
+    scripts/upgrade-installation.sh \
     scripts/clamav-wait-for-clamd.sh \
     scripts/security-audit.sh \
     scripts/preflight-check.sh \

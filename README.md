@@ -10,6 +10,7 @@ Ein distributionsübergreifendes Setup für **Arch Linux, Manjaro, RHEL und Rock
 - Bereitschaftsprüfung des `clamd`-Sockets vor dem Start von `clamonacc`
 - dauerhafter On-Access-Scanner (`clamonacc`/fanotify)
 - Signaturupdate viermal täglich, also alle sechs Stunden
+- projektisolierte Signaturdatenbank unter `/var/lib/clamav-automation/database`
 - täglicher sinnvoll eingegrenzter Dateiscan
 - SMTP-Mail bei Malwarefund
 - SMTP-Mail bei Fehler des täglichen Scans
@@ -105,6 +106,21 @@ Arbeitsspeicher. Je nach CPU, Datenträger und Datenbankgröße kann das ungefä
 30 bis 180 Sekunden dauern. Der Installer zeigt währenddessen regelmäßig einen
 Wartestatus an und startet `clamonacc` erst, wenn der projektspezifische Socket
 erfolgreich auf einen Ping antwortet.
+
+### Vorhandene Installation aktualisieren
+
+Eine bereits durch dieses Projekt eingerichtete Installation wird ohne erneute
+Abfrage und ohne Änderung der SMTP- oder Scan-Konfiguration aktualisiert mit:
+
+```bash
+sudo ./install.sh --upgrade
+```
+
+Alternativ akzeptiert `install-tui.sh --upgrade` dieselbe Funktion ohne neue
+TUI-Abfrage. Das Upgrade legt zuerst ein Backup unter
+`/var/backups/clamav-automation/` an, migriert ältere Signaturdatenbanken und
+stellt die Scanner auch dann wieder her, wenn das initiale Freshclam-Update
+fehlschlägt. Eine Deinstallation ist vorher nicht erforderlich.
 
 ## SMTP-Modi
 

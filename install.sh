@@ -7,8 +7,11 @@ LIBEXEC_DIR="/usr/local/libexec/clamav-automation"
 BACKUP_DIR="/var/backups/clamav-automation/$(date '+%Y%m%d-%H%M%S')"
 CLAM_USER="clamav-auto"
 CLAM_GROUP="clamav-auto"
+CLAM_STATE_DIR="/var/lib/clamav-automation"
+CLAM_DATABASE_DIR="$CLAM_STATE_DIR/database"
 CONFIG_SOURCE=""
 FORCE_INSTALL=0
+UPGRADE=0
 GENERATED_CONFIG=""
 SMTP_OPTIONS_SET=0
 SMTP_HOST=""
@@ -35,6 +38,7 @@ usage() {
 Aufruf: $0 [OPTIONEN]
 
   --force-install         nur inaktive Unit-Dateien/Templates bewusst übergehen
+  --upgrade               vorhandene ClamAV-Automation sicher aktualisieren
   --config-source DATEI   geprüfte Konfiguration der TUI/Automation verwenden
   --smtp-host WERT        SMTP-Server (Pflicht ohne --config-source)
   --smtp-port WERT        SMTP-Port (Standard: 587)
@@ -50,6 +54,10 @@ while (( $# > 0 )); do
     case "$1" in
         --force-install)
             FORCE_INSTALL=1
+            shift
+            ;;
+        --upgrade)
+            UPGRADE=1
             shift
             ;;
         --config-source)
@@ -77,6 +85,13 @@ while (( $# > 0 )); do
         *) die "Unbekannte Option: $1" ;;
     esac
 done
+
+if (( UPGRADE == 1 )); then
+    (( FORCE_INSTALL == 0 && SMTP_OPTIONS_SET == 0 )) || \
+        die "--upgrade darf nicht mit Installations- oder SMTP-Optionen kombiniert werden."
+    [[ -z "$CONFIG_SOURCE" ]] || die "--upgrade darf nicht mit --config-source kombiniert werden."
+    exec "$PROJECT_DIR/scripts/upgrade-installation.sh"
+fi
 
 [[ -z "$CONFIG_SOURCE" || -r "$CONFIG_SOURCE" ]] || \
     die "Konfigurationsquelle ist nicht lesbar: $CONFIG_SOURCE"
@@ -227,7 +242,7 @@ fi
 if ! id "$CLAM_USER" >/dev/null 2>&1; then
     useradd --system \
         --gid "$CLAM_GROUP" \
-        --home-dir /var/lib/clamav \
+        --home-dir "$CLAM_STATE_DIR" \
         --no-create-home \
         --shell /usr/sbin/nologin \
         "$CLAM_USER"
@@ -247,8 +262,9 @@ done
 log "Installiere Dateien"
 install -d -o root -g "$CLAM_GROUP" -m 0750 "$CONFIG_DIR"
 install -d -m 0755 "$LIBEXEC_DIR"
-install -d -o "$CLAM_USER" -g "$CLAM_GROUP" -m 0755 /var/lib/clamav
-install -d -o "$CLAM_USER" -g "$CLAM_GROUP" -m 0700 /var/lib/clamav/tmp
+install -d -o "$CLAM_USER" -g "$CLAM_GROUP" -m 0755 "$CLAM_STATE_DIR"
+install -d -o "$CLAM_USER" -g "$CLAM_GROUP" -m 0755 "$CLAM_DATABASE_DIR"
+install -d -o "$CLAM_USER" -g "$CLAM_GROUP" -m 0700 "$CLAM_STATE_DIR/tmp"
 install -d -m 0750 /var/log/clamav-automation
 install -d -o root -g root -m 0750 /var/lib/clamav-security/baselines
 install -d -o root -g root -m 0750 /var/log/clamav-security
@@ -302,13 +318,20 @@ done
 log "Erzeuge ClamAV- und Timer-Konfiguration"
 "$LIBEXEC_DIR/render-config.sh"
 
-# clamd soll die Signaturdatenbank lesen können; freshclam soll sie aktualisieren.
-chown -R "$CLAM_USER:$CLAM_GROUP" /var/lib/clamav
+# Vorhandene Distributionsdatenbanken dienen beim Upgrade als Startbestand. Das
+# Distributionsverzeichnis selbst wird bewusst nicht mehr verändert.
+shopt -s nullglob
+existing_databases=(/var/lib/clamav/*.cvd /var/lib/clamav/*.cld /var/lib/clamav/freshclam.dat)
+for database in "${existing_databases[@]}"; do
+    [[ -e "$CLAM_DATABASE_DIR/${database##*/}" ]] || cp -a "$database" "$CLAM_DATABASE_DIR/"
+done
+shopt -u nullglob
+chown -R "$CLAM_USER:$CLAM_GROUP" "$CLAM_STATE_DIR"
 
 if command -v getenforce >/dev/null 2>&1 && [[ "$(getenforce)" != "Disabled" ]]; then
     log "Konfiguriere SELinux-Grundeinstellung für Virenscanner"
     setsebool -P antivirus_can_scan_system 1 2>/dev/null || true
-    restorecon -RF /var/lib/clamav "$CONFIG_DIR" "$LIBEXEC_DIR" /var/log/clamav-automation \
+    restorecon -RF "$CLAM_STATE_DIR" "$CONFIG_DIR" "$LIBEXEC_DIR" /var/log/clamav-automation \
         2>/dev/null || true
 fi
 

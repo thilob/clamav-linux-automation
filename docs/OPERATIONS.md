@@ -51,7 +51,7 @@ Erwartet werden `root:clamav-auto 750` für das Verzeichnis und
 `root:clamav-auto 640` für `clamd.conf`.
 
 Damit `/tmp` per On-Access-Scan überwacht werden kann, verwendet `clamd`
-`/var/lib/clamav/tmp` als eigenes temporäres Verzeichnis. Die Meldung
+`/var/lib/clamav-automation/tmp` als eigenes temporäres Verzeichnis. Die Meldung
 `ClamOnAcc should not watch the directory clamd is using for temp files` weist
 darauf hin, dass diese Trennung in der laufenden Konfiguration fehlt.
 
@@ -94,6 +94,26 @@ sudo ls -lh /var/log/clamav-automation/
 ```bash
 sudo systemctl start clamav-auto-heartbeat.service
 ```
+
+Der Heartbeat übergibt Journalinhalte über eine temporäre Datei an den
+Mailversand. Dadurch greift die Linux-Grenze für die Länge eines einzelnen
+Kommandozeilenarguments nicht. `HEARTBEAT_JOURNAL_LINES` begrenzt zusätzlich
+die Zahl der enthaltenen Journalzeilen (Standard: 2000).
+
+## Signaturdatenbank
+
+Die Automation verwaltet ihre Signaturen unabhängig von Distributionsdiensten
+unter `/var/lib/clamav-automation/database`. Das verhindert, dass Paketupdates
+oder systemd-tmpfiles die Besitzrechte des von `freshclam` benötigten
+Verzeichnisses auf den Distributionsbenutzer zurücksetzen. Bei einem Upgrade
+übernimmt der Installer vorhandene `.cvd`- und `.cld`-Dateien aus
+`/var/lib/clamav`, verändert dieses Verzeichnis aber nicht.
+
+Eine bestehende Projektinstallation wird mit `sudo ./install.sh --upgrade`
+aktualisiert. Konfiguration und SMTP-Zugangsdaten bleiben erhalten. Vor jeder
+Änderung entsteht ein Backup unter `/var/backups/clamav-automation/`. Scheitert
+Freshclam, startet der Upgradepfad `clamd` und `clamonacc` dennoch wieder und
+beendet sich anschließend mit einer aussagekräftigen Fehlermeldung.
 
 ## SMTP separat testen
 

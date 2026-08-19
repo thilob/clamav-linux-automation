@@ -1,7 +1,7 @@
 [Unit]
 Description=ClamAV daemon for automation
 After=local-fs.target network.target
-RequiresMountsFor=/var/lib/clamav
+RequiresMountsFor=/var/lib/clamav-automation/database
 
 [Service]
 Type=simple

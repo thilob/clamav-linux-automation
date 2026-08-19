@@ -18,8 +18,8 @@ bool_value() {
 }
 
 cat >"$CLAMD_CONF" <<EOF
-DatabaseDirectory /var/lib/clamav
-TemporaryDirectory /var/lib/clamav/tmp
+DatabaseDirectory /var/lib/clamav-automation/database
+TemporaryDirectory /var/lib/clamav-automation/tmp
 LocalSocket /run/clamav-automation/clamd.sock
 LocalSocketMode 0660
 FixStaleSocket yes
@@ -69,7 +69,7 @@ done
 }
 
 cat >/etc/clamav-automation/freshclam.conf <<'EOF'
-DatabaseDirectory /var/lib/clamav
+DatabaseDirectory /var/lib/clamav-automation/database
 DatabaseOwner clamav-auto
 DNSDatabaseInfo current.cvd.clamav.net
 DatabaseMirror database.clamav.net

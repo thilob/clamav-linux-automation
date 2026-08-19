@@ -34,6 +34,8 @@ MAIL_TO=""
 VIRUS_MAIL_SUBJECT="[ClamAV] Malwarefund auf {hostname}"
 SCAN_ERROR_MAIL_SUBJECT="[ClamAV] Scanfehler auf {hostname}"
 HEARTBEAT_MAIL_SUBJECT="[ClamAV] Heartbeat von {hostname}"
+# Höchstens so viele Journalzeilen werden in den Heartbeat aufgenommen.
+HEARTBEAT_JOURNAL_LINES="2000"
 
 # Platzhalter:
 #   {hostname}

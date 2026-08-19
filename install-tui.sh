@@ -5,6 +5,7 @@ set -Eeuo pipefail
 PROJECT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 TMP_CONFIG=""
 FORCE_INSTALL=0
+UPGRADE=0
 
 cleanup() {
     [[ -z "$TMP_CONFIG" ]] || rm -f -- "$TMP_CONFIG"
@@ -16,10 +17,17 @@ die() { echo "FEHLER: $*" >&2; exit 1; }
 [[ -t 0 && -t 1 ]] || die "Die TUI benötigt ein interaktives Terminal."
 
 if (( $# > 1 )); then
-    die "Aufruf: $0 [--force-install]"
+    die "Aufruf: $0 [--force-install|--upgrade]"
 elif (( $# == 1 )); then
-    [[ "$1" == "--force-install" ]] || die "Unbekannte Option: $1"
-    FORCE_INSTALL=1
+    case "$1" in
+        --force-install) FORCE_INSTALL=1 ;;
+        --upgrade) UPGRADE=1 ;;
+        *) die "Unbekannte Option: $1" ;;
+    esac
+fi
+
+if (( UPGRADE == 1 )); then
+    exec "$PROJECT_DIR/install.sh" --upgrade
 fi
 
 # Die Konfliktprüfung erfolgt vor der Erfassung vertraulicher Eingaben.

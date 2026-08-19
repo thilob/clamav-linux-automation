@@ -417,7 +417,7 @@ check_clamav_health() {
     if ! systemctl is-active --quiet clamav-auto-freshclam.timer; then
         finding WARNING CLAM-002 "FreshClam-Timer ist nicht aktiv."
     fi
-    newest_signature="$(find /var/lib/clamav -maxdepth 1 -type f \
+    newest_signature="$(find /var/lib/clamav-automation/database -maxdepth 1 -type f \
         \( -name '*.cvd' -o -name '*.cld' \) -printf '%T@\n' 2>/dev/null | sort -n | tail -n1)"
     if [[ -z "$newest_signature" ]]; then
         finding CRITICAL CLAM-003 "Keine ClamAV-Signaturdatenbank gefunden."
@@ -508,12 +508,12 @@ elif (( notify == 1 )) && bool_enabled "${SECURITY_AUDIT_MAIL_ON_FINDING:-true}"
     (( CRITICAL_COUNT > 0 )) && highest="CRITICAL"
     "$MAILER" --kind security \
         --subject "[Security Audit][$highest] $HOST - $CRITICAL_COUNT critical / $WARNING_COUNT warnings" \
-        --details "$(cat "$REPORT")" || \
+        --details-file "$REPORT" || \
         logger -p daemon.err -t clamav-security-audit "Audit-Mail konnte nicht versendet werden" || true
 elif (( CRITICAL_COUNT == 0 && WARNING_COUNT == 0 )) && \
      bool_enabled "${SECURITY_AUDIT_HEARTBEAT:-true}"; then
     "$MAILER" --kind security --subject "[Security Audit][OK] $HOST" \
-        --details "$(cat "$REPORT")" || \
+        --details-file "$REPORT" || \
         logger -p daemon.err -t clamav-security-audit "Audit-Heartbeat konnte nicht versendet werden" || true
 fi
 

@@ -33,8 +33,18 @@ def main() -> int:
     p.add_argument("--subject", default="")
     p.add_argument("--virus", default="")
     p.add_argument("--file", default="")
-    p.add_argument("--details", default="")
+    details = p.add_mutually_exclusive_group()
+    details.add_argument("--details", default="")
+    details.add_argument("--details-file", type=Path)
     args = p.parse_args()
+
+    details_text = args.details
+    if args.details_file is not None:
+        try:
+            details_text = args.details_file.read_text(encoding="utf-8", errors="replace")
+        except OSError as exc:
+            print(f"Detaildatei kann nicht gelesen werden: {exc}", file=sys.stderr)
+            return 2
 
     host = shell_var("SMTP_HOST")
     port = int(shell_var("SMTP_PORT") or "587")
@@ -84,7 +94,7 @@ Wenn diese Nachricht angekommen ist, funktioniert der SMTP-Versand.
         "date": dt.datetime.now().astimezone().isoformat(sep=" ", timespec="seconds"),
         "virus": args.virus or "unbekannt",
         "file": args.file or "unbekannt",
-        "details": args.details,
+        "details": details_text,
     }
     subject = expand(subject, values)
     body = expand(body, values)

@@ -54,7 +54,7 @@ rm -rf /usr/local/libexec/clamav-automation
 if (( KEEP_CONFIG == 0 )); then
     rm -rf /etc/clamav-automation /etc/clamav-security \
         /var/log/clamav-automation /var/log/clamav-security \
-        /var/lib/clamav-security
+        /var/lib/clamav-security /var/lib/clamav-automation
 else
     echo "Konfiguration bleibt erhalten: /etc/clamav-automation"
 fi
