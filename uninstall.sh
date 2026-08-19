@@ -67,6 +67,9 @@ if (( REMOVE_PACKAGES == 1 )); then
         # shellcheck source=/dev/null
         source /etc/os-release
         case "${ID,,}" in
+            debian)
+                apt-get remove -y clamav clamav-daemon clamav-freshclam clamdscan || true
+                ;;
             arch|manjaro)
                 pacman -Rns --noconfirm clamav || true
                 ;;

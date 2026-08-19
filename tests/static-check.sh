@@ -27,6 +27,12 @@ env -i PATH="$PATH" bash -u -c '
     : "$distro_like" "$version_major"
 ' _ /etc/os-release
 
+echo "Prüfe Debian-Paketierung..."
+grep -q 'apt-get install' "$ROOT/install.sh"
+for package in clamav clamav-daemon clamav-freshclam clamdscan; do
+    grep -q "${package}" "$ROOT/install.sh"
+done
+
 echo "Prüfe erwartete Dateien..."
 for f in \
     install.sh install-tui.sh uninstall.sh \

@@ -1,5 +1,26 @@
 # Betrieb und Fehlersuche
 
+## Debian
+
+Der Installer unterstützt Debian mit systemd und installiert über APT die
+Pakete `clamav`, `clamav-daemon`, `clamav-freshclam` und `clamdscan`. Die
+Programme `clamd` und `clamonacc` liegen bei Debian unter `/usr/sbin`; der
+Installer richtet dafür bei Bedarf die von den Projekt-Units erwarteten Links
+unter `/usr/bin` ein.
+
+Vor dem Start der Projekt-Units werden die Debian-Dienste
+`clamav-daemon.service`, `clamav-daemon.socket`, `clamav-clamonacc.service` und
+`clamav-freshclam.service` deaktiviert. Zur Kontrolle dürfen anschließend nur
+die Units mit Präfix `clamav-auto-` aktiv beziehungsweise aktiviert sein:
+
+```bash
+systemctl list-unit-files 'clamav*' --no-pager
+systemctl list-units 'clamav*' --all --no-pager
+```
+
+Ubuntu, Raspberry Pi OS und andere Debian-Derivate werden nicht automatisch
+über `ID_LIKE=debian` freigeschaltet und gelten nicht als getestet.
+
 ## Schnellcheck
 
 ```bash

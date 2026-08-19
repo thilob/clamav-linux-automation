@@ -155,6 +155,16 @@ install_arch() {
     pacman -Syu --needed --noconfirm clamav python ca-certificates
 }
 
+install_debian() {
+    log "Aktualisiere APT-Paketlisten"
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update
+
+    log "Installiere ClamAV-Pakete mit APT"
+    apt-get install -y --no-install-recommends \
+        clamav clamav-daemon clamav-freshclam clamdscan python3 ca-certificates
+}
+
 enable_epel() {
     if rpm -q epel-release >/dev/null 2>&1; then
         return
@@ -212,6 +222,9 @@ install_rhel_family() {
 }
 
 case "$DISTRO_ID" in
+    debian)
+        install_debian
+        ;;
     arch|manjaro)
         install_arch
         ;;
@@ -309,6 +322,9 @@ for unit in \
     clamav-freshclam.service \
     clamav-freshclam-once.timer \
     clamav-daemon.service \
+    clamav-daemon.socket \
+    clamav-daemon.timer \
+    clamav-clamonacc.service \
     clamd@scan.service \
     freshclam.service \
     freshclam.timer; do

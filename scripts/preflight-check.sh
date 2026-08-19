@@ -34,6 +34,15 @@ if command -v pacman >/dev/null 2>&1 && pacman -Q clamav >/dev/null 2>&1; then
     add_unique hard_findings "Installiertes Paket: ${package:-clamav}"
 fi
 
+if command -v dpkg-query >/dev/null 2>&1; then
+    for package_name in clamav clamav-daemon clamav-freshclam; do
+        if package="$(dpkg-query -W -f='${Package} ${Version} ${db:Status-Abbrev}' \
+            "$package_name" 2>/dev/null)" && [[ "$package" == *" ii "* ]]; then
+            add_unique hard_findings "Installiertes Paket: $package"
+        fi
+    done
+fi
+
 if command -v rpm >/dev/null 2>&1; then
     while IFS= read -r package; do
         [[ -n "$package" ]] && add_unique hard_findings "Installiertes Paket: $package"

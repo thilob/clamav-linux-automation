@@ -1,6 +1,6 @@
 # ClamAV Linux Automation
 
-Ein distributionsübergreifendes Setup für **Arch Linux, Manjaro, RHEL und Rocky Linux**.
+Ein distributionsübergreifendes Setup für **Debian, Arch Linux, Manjaro, RHEL und Rocky Linux**.
 
 ## Funktionen
 
@@ -25,6 +25,7 @@ Ein distributionsübergreifendes Setup für **Arch Linux, Manjaro, RHEL und Rock
 
 | Distribution | Installation |
 |---|---|
+| Debian | `apt`, Pakete `clamav`, `clamav-daemon`, `clamav-freshclam` und `clamdscan` |
 | Arch Linux | `pacman`, Paket `clamav` |
 | Manjaro | `pacman`, Paket `clamav` |
 | Rocky Linux | `dnf`, EPEL |
@@ -33,6 +34,11 @@ Ein distributionsübergreifendes Setup für **Arch Linux, Manjaro, RHEL und Rock
 Bei RHEL/Rocky werden nach Aktivierung von EPEL fehlende Programme zusätzlich über
 `dnf repoquery --whatprovides` ermittelt. Dadurch ist das Setup weniger abhängig
 von der genauen RPM-Aufteilung einer einzelnen EPEL-Version.
+
+Unter Debian werden die Distributionsdienste `clamav-daemon`,
+`clamav-clamonacc` und `clamav-freshclam` deaktiviert, bevor die isolierten
+Projekt-Units aktiviert werden. Unterstützt wird Debian mit systemd; Derivate
+wie Ubuntu oder Raspberry Pi OS gelten damit nicht automatisch als getestet.
 
 ## Installation
 
@@ -75,7 +81,7 @@ Für den gleichen Ausnahmefall unterstützt die TUI ebenfalls
 Sie fragt SMTP-Zugang, Mailadressen, Scanpfade, Scanlimits, Erkennungsoptionen,
 Zeitpläne und Protokollaufbewahrung ab. Vertrauliche Passwörter erscheinen weder
 in der Zusammenfassung noch auf dem Bildschirm. Benötigt wird das Programm
-`dialog` (`pacman -S dialog` beziehungsweise `dnf install dialog`).
+`dialog` (`apt install dialog`, `pacman -S dialog` beziehungsweise `dnf install dialog`).
 
 Die klassische Installation übernimmt die SMTP-Daten ausschließlich aus diesen
 Kommandozeilenoptionen und schreibt sie direkt in die geschützte

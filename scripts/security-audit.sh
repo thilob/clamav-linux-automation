@@ -296,7 +296,13 @@ check_repositories() {
     bool_enabled "${SECURITY_CHECK_REPOSITORIES:-true}" || return 0
     local current="$TMP_ROOT/repositories"
     : >"$current"
-    if [[ "$DISTRO_ID" =~ ^(arch|manjaro)$ || "$DISTRO_LIKE" == *arch* ]]; then
+    if [[ "$DISTRO_ID" == "debian" || "$DISTRO_LIKE" == *debian* ]]; then
+        snapshot_tree /etc/apt >>"$current"
+        while IFS= read -r insecure; do
+            [[ -n "$insecure" ]] && finding WARNING REPO-APT "Unsichere APT-Option: $insecure"
+        done < <(grep -RinsE 'Acquire::(AllowInsecureRepositories|AllowDowngradeToInsecureRepositories).*true|trusted[[:space:]]*=[[:space:]]*yes' \
+            /etc/apt 2>/dev/null || true)
+    elif [[ "$DISTRO_ID" =~ ^(arch|manjaro)$ || "$DISTRO_LIKE" == *arch* ]]; then
         snapshot_tree /etc/pacman.conf >>"$current"
         snapshot_tree /etc/pacman.d >>"$current"
         while IFS= read -r hit; do finding CRITICAL REPO-ARCH "Unsichere Pacman-Signaturkonfiguration: $hit"; done \
@@ -353,7 +359,17 @@ check_package_integrity() {
     bool_enabled "${SECURITY_CHECK_PACKAGES:-true}" || return 0
     local output="$TMP_ROOT/package-integrity"
     : >"$output"
-    if [[ "$DISTRO_ID" =~ ^(arch|manjaro)$ || "$DISTRO_LIKE" == *arch* ]]; then
+    if [[ "$DISTRO_ID" == "debian" || "$DISTRO_LIKE" == *debian* ]]; then
+        if command -v dpkg >/dev/null 2>&1; then
+            dpkg -V >"$output" 2>&1 || true
+            if [[ -s "$output" ]]; then
+                finding WARNING PKG-DEBIAN "dpkg meldet veränderte Paketdateien; Details im Auditreport."
+                cat "$output" >>"$REPORT"
+            else
+                finding INFO PKG-DEBIAN "dpkg meldet keine veränderten Paketdateien."
+            fi
+        fi
+    elif [[ "$DISTRO_ID" =~ ^(arch|manjaro)$ || "$DISTRO_LIKE" == *arch* ]]; then
         check_foreign_packages
         check_aur_sources
         if command -v paccheck >/dev/null 2>&1; then
