@@ -137,6 +137,11 @@ täglichen `clamdscan` per Pfad-RegEx ausgenommen. Diese Ausnahme verhindert
 Selbsttreffer auf den Regelbestand; sie deaktiviert nicht die Anwendung der
 YARA-Regeln durch den Security-Audit.
 
+Der Installationshelfer verarbeitet das Archiv vollständig unter
+`/var/lib/clamav-automation/tmp`. Dieser Pfad ist absichtlich von den
+On-Access-Pfaden getrennt. Temporäre Archive unter `/tmp` würden bereits vor
+der geprüften Installation ClamAV-Signaturen auslösen.
+
 Detailprotokoll:
 
 ```bash
@@ -168,6 +173,13 @@ aktualisiert. Konfiguration und SMTP-Zugangsdaten bleiben erhalten. Vor jeder
 Änderung entsteht ein Backup unter `/var/backups/clamav-automation/`. Scheitert
 Freshclam, startet der Upgradepfad `clamd` und `clamonacc` dennoch wieder und
 beendet sich anschließend mit einer aussagekräftigen Fehlermeldung.
+
+Das Upgrade aktiviert `clamd`, `clamonacc`, die drei Betriebs-Timer sowie die
+in der Konfiguration eingeschalteten Security-Audit-Timer erneut. Damit bleiben
+die Dienste auch nach einem Upgrade auf Installationen startfähig, deren Units
+zuvor nur manuell gestartet, aber nicht aktiviert waren. Fehlende optionale
+Quelldateien wie `/var/lib/clamav/freshclam.dat` werden bei der Migration
+übersprungen.
 
 ## SMTP separat testen
 

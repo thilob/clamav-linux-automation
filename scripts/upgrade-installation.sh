@@ -47,6 +47,7 @@ install -d -o "$CLAM_USER" -g "$CLAM_GROUP" -m 0700 "$STATE_DIR/tmp"
 shopt -s nullglob
 existing_databases=(/var/lib/clamav/*.cvd /var/lib/clamav/*.cld /var/lib/clamav/freshclam.dat)
 for database in "${existing_databases[@]}"; do
+    [[ -e "$database" ]] || continue
     [[ -e "$DATABASE_DIR/${database##*/}" ]] || cp -a "$database" "$DATABASE_DIR/"
 done
 shopt -u nullglob
@@ -96,15 +97,27 @@ fi
 
 log "Starte Scanner mit der aktualisierten Konfiguration neu"
 systemctl stop clamav-auto-onaccess.service >/dev/null 2>&1 || true
+systemctl enable clamav-auto-clamd.service
 systemctl restart clamav-auto-clamd.service
 if ! "$LIBEXEC_DIR/clamav-wait-for-clamd.sh" 180; then
     journalctl -u clamav-auto-clamd.service -n 80 --no-pager >&2 || true
     die "clamd ist nach dem Upgrade nicht betriebsbereit. Backup: $BACKUP_DIR"
 fi
-systemctl restart clamav-auto-onaccess.service
+systemctl enable --now clamav-auto-onaccess.service
 
 systemctl enable --now clamav-auto-freshclam.timer clamav-auto-scan.timer \
     clamav-auto-heartbeat.timer
+
+# shellcheck source=/dev/null
+source "$CONFIG_DIR/clamav-automation.conf"
+if [[ "${SECURITY_AUDIT_ENABLED:-true}" =~ ^(yes|true|1|on)$ ]]; then
+    if [[ "${SECURITY_AUDIT_DAILY_ENABLED:-true}" =~ ^(yes|true|1|on)$ ]]; then
+        systemctl enable --now clamav-auto-security-daily.timer
+    fi
+    if [[ "${SECURITY_AUDIT_WEEKLY_ENABLED:-true}" =~ ^(yes|true|1|on)$ ]]; then
+        systemctl enable --now clamav-auto-security-weekly.timer
+    fi
+fi
 
 echo
 echo "Upgrade abgeschlossen. Backup: $BACKUP_DIR"

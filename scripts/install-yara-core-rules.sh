@@ -5,7 +5,12 @@ set -Eeuo pipefail
 URL="${YARA_FORGE_CORE_URL:-https://github.com/YARAHQ/yara-forge/releases/latest/download/yara-forge-rules-core.zip}"
 TARGET_DIR="${YARA_CORE_TARGET_DIR:-/etc/clamav-security/yara}"
 TARGET="$TARGET_DIR/yara-forge-core.yar"
-TMP_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/yara-forge-core.XXXXXX")"
+YARA_CORE_TMP_DIR="${YARA_CORE_TMP_DIR:-/var/lib/clamav-automation/tmp}"
+[[ -d "$YARA_CORE_TMP_DIR" ]] || {
+    echo "FEHLER: Sicheres temporäres Verzeichnis fehlt: $YARA_CORE_TMP_DIR" >&2
+    exit 1
+}
+TMP_ROOT="$(mktemp -d "$YARA_CORE_TMP_DIR/yara-forge-core.XXXXXX")"
 ARCHIVE="$TMP_ROOT/yara-forge-rules-core.zip"
 RULES="$TMP_ROOT/yara-rules-core.yar"
 

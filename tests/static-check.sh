@@ -59,6 +59,8 @@ echo "Prüfe YARA-Forge-Core-Integration..."
 grep -q 'yara-forge-rules-core.zip' "$ROOT/scripts/install-yara-core-rules.sh"
 grep -q -- '--install-yara-core' "$ROOT/install.sh"
 grep -q -- '--install-yara-core' "$ROOT/install-tui.sh"
+grep -q 'YARA_CORE_TMP_DIR:-/var/lib/clamav-automation/tmp' \
+    "$ROOT/scripts/install-yara-core-rules.sh"
 
 echo "Prüfe FD-Übergabe des On-Access-Scanners..."
 grep -q 'ExecStart=.*clamonacc .*--fdpass' \
@@ -74,6 +76,18 @@ grep -q '^OnAccessExcludePath /etc/clamav-security/yara$' \
     "$ROOT/scripts/render-config.sh"
 grep -qF -- "--exclude=^/etc/clamav-security/yara(/|\$)" \
     "$ROOT/scripts/clamav-daily-scan.sh"
+
+echo "Prüfe robusten Upgrade-Autostart..."
+# Der Suchtext soll das literale Shell-Fragment aus dem Upgrade-Skript prüfen.
+# shellcheck disable=SC2016
+grep -q '\[\[ -e "$database" \]\] || continue' \
+    "$ROOT/scripts/upgrade-installation.sh"
+grep -q 'systemctl enable clamav-auto-clamd.service' \
+    "$ROOT/scripts/upgrade-installation.sh"
+grep -q 'systemctl enable --now clamav-auto-onaccess.service' \
+    "$ROOT/scripts/upgrade-installation.sh"
+grep -q 'clamav-auto-security-daily.timer' \
+    "$ROOT/scripts/upgrade-installation.sh"
 
 echo "Prüfe Security-Audit-Dry-Run..."
 SECURITY_AUDIT_CONFIG="$ROOT/tests/security-audit-test.conf" \

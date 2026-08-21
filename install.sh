@@ -358,6 +358,7 @@ log "Erzeuge ClamAV- und Timer-Konfiguration"
 shopt -s nullglob
 existing_databases=(/var/lib/clamav/*.cvd /var/lib/clamav/*.cld /var/lib/clamav/freshclam.dat)
 for database in "${existing_databases[@]}"; do
+    [[ -e "$database" ]] || continue
     [[ -e "$CLAM_DATABASE_DIR/${database##*/}" ]] || cp -a "$database" "$CLAM_DATABASE_DIR/"
 done
 shopt -u nullglob

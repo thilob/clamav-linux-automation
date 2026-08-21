@@ -148,6 +148,11 @@ werden weiterhin vom Security-Audit geladen und auf die konfigurierten
 YARA-Scanpfade angewendet. Andere Dateien unter `/etc/clamav-security` bleiben
 im ClamAV-Scan enthalten.
 
+Auch Download, Entpacken und Kompilieren erfolgen unter
+`/var/lib/clamav-automation/tmp` und nicht unter dem überwachten `/tmp`. Dadurch
+löst bereits das heruntergeladene ZIP-Archiv mit seinen enthaltenen Signaturen
+keine On-Access-Malwaremeldung aus.
+
 Beim ersten Start lädt `clamd` mehrere Millionen Signaturen in den
 Arbeitsspeicher. Je nach CPU, Datenträger und Datenbankgröße kann das ungefähr
 30 bis 180 Sekunden dauern. Der Installer zeigt währenddessen regelmäßig einen
