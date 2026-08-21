@@ -18,7 +18,7 @@ Ein distributionsübergreifendes Setup für **Debian, Arch Linux, Manjaro, RHEL 
 - zentrale Konfiguration
 - systemd-Timer
 - interaktiver Selbsttest inkl. optionalem SMTP- und EICAR-Test
-- optionaler Download der kuratierten YARA-Forge-Core-Regeln
+- optionale Auswahl kuratierter YARA-Forge-Regelpakete
 - Uninstaller
 - keine automatische Löschung oder Quarantäne
 
@@ -81,8 +81,12 @@ Für den gleichen Ausnahmefall unterstützt die TUI ebenfalls
 
 Sie fragt SMTP-Zugang, Mailadressen, Scanpfade, Scanlimits, Erkennungsoptionen,
 Zeitpläne und Protokollaufbewahrung ab. Vertrauliche Passwörter erscheinen weder
-in der Zusammenfassung noch auf dem Bildschirm. Benötigt wird das Programm
-`dialog` (`apt install dialog`, `pacman -S dialog` beziehungsweise `dnf install dialog`).
+in der Zusammenfassung noch auf dem Bildschirm. Fehlt das Programm `dialog`,
+fragt die TUI vor ihrem Start aktiv nach, ob es aus den offiziellen Paketquellen
+der erkannten Distribution installiert werden darf. Erst nach ausdrücklicher
+Zustimmung wird `apt-get`, `pacman` beziehungsweise `dnf` aufgerufen. Bei
+Ablehnung oder fehlgeschlagener Installation bricht die TUI ohne Erfassung von
+Konfigurationswerten ab.
 
 Die klassische Installation übernimmt die SMTP-Daten ausschließlich aus diesen
 Kommandozeilenoptionen und schreibt sie direkt in die geschützte
@@ -108,15 +112,28 @@ MAIL_TO="admin@example.org"
 
 Die Konfigurationsdatei wird mit `0640 root:clamav-auto` installiert.
 
-### YARA-Forge-Core-Regeln
+### YARA-Forge-Regelpakete
 
-Die TUI fragt, ob das aktuelle Core-Regelpaket von
-[YARA Forge](https://github.com/YARAHQ/yara-forge/releases) heruntergeladen und
-installiert werden soll. Bei der klassischen Installation wird dies explizit
-aktiviert mit:
+Die TUI bietet drei aktuelle Pakete von
+[YARA Forge](https://github.com/YARAHQ/yara-forge/releases) oder den Verzicht
+auf einen Download an:
+
+| Paket | Charakteristik |
+|---|---|
+| `core` | stark kuratiert, geringste Last und geringstes Fehlalarmrisiko |
+| `extended` | deutlich breiter, höhere Laufzeit und mehr mögliche Fehlalarme |
+| `full` | nahezu vollständiger Bestand, höchste Last und höchstes Fehlalarmrisiko |
+
+Die Pakete sind gestufte, stark überlappende Alternativen. Deshalb kann immer
+nur eines aktiv sein. Bei einem Wechsel wird der bisherige YARA-Forge-Satz erst
+gesichert, das neue Paket heruntergeladen und vollständig kompiliert und danach
+atomar ersetzt. Eigenständige lokale `.yar`-Dateien mit anderen Namen bleiben
+unverändert.
+
+Bei der klassischen Installation wird das Paket explizit gewählt:
 
 ```bash
-sudo ./install.sh --install-yara-core \
+sudo ./install.sh --install-yara-rules extended \
   --smtp-host 'smtp.example.org' \
   --mail-from 'clamav@example.org' \
   --mail-to 'admin@example.org'
@@ -125,20 +142,26 @@ sudo ./install.sh --install-yara-core \
 Für eine vorhandene Projektinstallation:
 
 ```bash
-sudo ./install.sh --upgrade --install-yara-core
+sudo ./install.sh --upgrade --install-yara-rules extended
 ```
+
+`--install-yara-core` bleibt als kompatibler Alias für
+`--install-yara-rules core` erhalten.
 
 Falls nötig, wird das Distributionspaket `yara` installiert. Das Archiv wird
 über HTTPS aus dem offiziellen neuesten GitHub-Release geladen, als ZIP geprüft,
-die enthaltene Datei `packages/core/yara-rules-core.yar` vollständig mit YARA
-kompiliert und erst danach als
-`/etc/clamav-security/yara/yara-forge-core.yar` installiert. Daneben wird eine
+die erwartete Paketdatei vollständig mit YARA kompiliert und erst danach als
+`/etc/clamav-security/yara/yara-forge-PAKET.yar` installiert. Daneben wird eine
 lokale SHA-256-Datei abgelegt. Da YARA Forge keine separate Release-Prüfsumme
 veröffentlicht, belegt diese Prüfsumme lokale Änderungen, ist aber kein
 zusätzlicher Herkunftsnachweis.
 
-Das Core-Paket umfasst mehrere tausend Regeln. Wöchentliche YARA-Audits können
-dadurch – insbesondere bei großen `/home`-Beständen – deutlich länger dauern.
+Die veröffentlichten Pakete sind in sich geschlossene Einzeldateien; externe
+Includes oder getrennt zu installierende Regelabhängigkeiten sind daher nicht
+erforderlich. Benötigte Standardmodule werden durch die vollständige
+Kompilierung mit der lokal installierten YARA-Version geprüft. Wöchentliche
+YARA-Audits können insbesondere mit `extended` und `full` und bei großen
+`/home`-Beständen deutlich länger dauern.
 
 YARA-Regeldateien enthalten absichtlich Signaturen und verdächtige
 Zeichenfolgen. ClamAV kann deshalb die Regeldateien selbst als Bedrohung

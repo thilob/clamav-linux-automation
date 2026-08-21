@@ -12,7 +12,7 @@ CLAM_DATABASE_DIR="$CLAM_STATE_DIR/database"
 CONFIG_SOURCE=""
 FORCE_INSTALL=0
 UPGRADE=0
-INSTALL_YARA_CORE=0
+YARA_RULESET=""
 GENERATED_CONFIG=""
 SMTP_OPTIONS_SET=0
 SMTP_HOST=""
@@ -40,7 +40,8 @@ Aufruf: $0 [OPTIONEN]
 
   --force-install         nur inaktive Unit-Dateien/Templates bewusst übergehen
   --upgrade               vorhandene ClamAV-Automation sicher aktualisieren
-  --install-yara-core     aktuelle YARA-Forge-Core-Regeln installieren
+  --install-yara-rules P  YARA-Forge-Paket: core, extended oder full
+  --install-yara-core     Alias für --install-yara-rules core
   --config-source DATEI   geprüfte Konfiguration der TUI/Automation verwenden
   --smtp-host WERT        SMTP-Server (Pflicht ohne --config-source)
   --smtp-port WERT        SMTP-Port (Standard: 587)
@@ -63,8 +64,19 @@ while (( $# > 0 )); do
             shift
             ;;
         --install-yara-core)
-            INSTALL_YARA_CORE=1
+            [[ -z "$YARA_RULESET" || "$YARA_RULESET" == "core" ]] || \
+                die "Es kann nur ein YARA-Forge-Paket ausgewählt werden."
+            YARA_RULESET="core"
             shift
+            ;;
+        --install-yara-rules)
+            (( $# >= 2 )) || die "Für --install-yara-rules fehlt das Paket."
+            [[ "$2" =~ ^(core|extended|full)$ ]] || \
+                die "YARA-Forge-Paket muss core, extended oder full sein."
+            [[ -z "$YARA_RULESET" || "$YARA_RULESET" == "$2" ]] || \
+                die "Es kann nur ein YARA-Forge-Paket ausgewählt werden."
+            YARA_RULESET="$2"
+            shift 2
             ;;
         --config-source)
             (( $# >= 2 )) || die "Für --config-source fehlt eine Datei."
@@ -97,7 +109,7 @@ if (( UPGRADE == 1 )); then
         die "--upgrade darf nicht mit Installations- oder SMTP-Optionen kombiniert werden."
     [[ -z "$CONFIG_SOURCE" ]] || die "--upgrade darf nicht mit --config-source kombiniert werden."
     UPGRADE_ARGS=()
-    (( INSTALL_YARA_CORE == 1 )) && UPGRADE_ARGS+=(--install-yara-core)
+    [[ -n "$YARA_RULESET" ]] && UPGRADE_ARGS+=(--install-yara-rules "$YARA_RULESET")
     exec "$PROJECT_DIR/scripts/upgrade-installation.sh" "${UPGRADE_ARGS[@]}"
 fi
 
@@ -250,8 +262,8 @@ case "$DISTRO_ID" in
         ;;
 esac
 
-if (( INSTALL_YARA_CORE == 1 )) && ! command -v yara >/dev/null 2>&1; then
-    log "Installiere YARA für die Core-Regeln"
+if [[ -n "$YARA_RULESET" ]] && ! command -v yara >/dev/null 2>&1; then
+    log "Installiere YARA für das Regelpaket '$YARA_RULESET'"
     case "$DISTRO_ID" in
         debian) apt-get install -y --no-install-recommends yara ;;
         arch|manjaro) pacman -S --needed --noconfirm yara ;;
@@ -364,9 +376,9 @@ done
 shopt -u nullglob
 chown -R "$CLAM_USER:$CLAM_GROUP" "$CLAM_STATE_DIR"
 
-if (( INSTALL_YARA_CORE == 1 )); then
-    log "Lade und installiere YARA-Forge-Core-Regeln"
-    "$LIBEXEC_DIR/install-yara-core-rules.sh"
+if [[ -n "$YARA_RULESET" ]]; then
+    log "Lade und installiere YARA-Forge-Regelpaket '$YARA_RULESET'"
+    "$LIBEXEC_DIR/install-yara-core-rules.sh" "$YARA_RULESET"
 fi
 
 if command -v getenforce >/dev/null 2>&1 && [[ "$(getenforce)" != "Disabled" ]]; then

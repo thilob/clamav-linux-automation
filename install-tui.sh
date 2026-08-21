@@ -38,8 +38,50 @@ PREFLIGHT_ARGS=()
 # shellcheck source=scripts/config-functions.sh
 source "$PROJECT_DIR/scripts/config-functions.sh"
 
-command -v dialog >/dev/null 2>&1 || die \
-    "Das Programm 'dialog' wird für die TUI benötigt (Arch: pacman -S dialog, RHEL/Rocky: dnf install dialog)."
+install_dialog_package() {
+    local distro_id distro_like answer
+    [[ -r /etc/os-release ]] || die "/etc/os-release fehlt; dialog kann nicht automatisch installiert werden."
+    # shellcheck source=/dev/null
+    source /etc/os-release
+    distro_id="${ID,,}"
+    distro_like="${ID_LIKE:-}"
+
+    printf '\nDas für die Terminaloberfläche benötigte Paket "dialog" fehlt.\n'
+    printf 'Soll es jetzt aus den offiziellen Paketquellen von %s installiert werden? [j/N] ' \
+        "${PRETTY_NAME:-$distro_id}"
+    read -r answer
+    case "${answer,,}" in
+        j|ja|y|yes) ;;
+        *) die "Installation von dialog wurde abgelehnt." ;;
+    esac
+
+    case "$distro_id" in
+        debian)
+            export DEBIAN_FRONTEND=noninteractive
+            apt-get update
+            apt-get install -y --no-install-recommends dialog
+            ;;
+        arch|manjaro)
+            pacman -S --needed --noconfirm dialog
+            ;;
+        rocky|rhel)
+            dnf install -y dialog
+            ;;
+        *)
+            if [[ "$distro_like" == *arch* ]]; then
+                pacman -S --needed --noconfirm dialog
+            elif [[ "$distro_like" == *rhel* || "$distro_like" == *fedora* ]]; then
+                dnf install -y dialog
+            else
+                die "Keine automatische dialog-Installation für ${PRETTY_NAME:-$distro_id} definiert."
+            fi
+            ;;
+    esac
+    command -v dialog >/dev/null 2>&1 || die \
+        "Paketinstallation beendet, aber das Programm dialog fehlt weiterhin."
+}
+
+command -v dialog >/dev/null 2>&1 || install_dialog_package
 
 export DIALOGRC="${DIALOGRC:-$PROJECT_DIR/config/dialogrc-as400}"
 BACKTITLE="CLAMAV AUTOMATION - SYSTEM INSTALLATION"
@@ -142,13 +184,13 @@ SECURITY_CHECK_NETWORK="$(menu_choice "SECURITY AUDIT" "Listening Sockets mit Ba
     false "Netzwerkprüfung deaktiviert" true "Netzwerkprüfung aktiviert")" || exit 1
 SECURITY_CHECK_YARA="$(menu_choice "SECURITY AUDIT" "Optionale lokale YARA-Regeln verwenden?" "true" \
     true "YARA verwenden, falls installiert" false "YARA deaktivieren")" || exit 1
-if dialog --clear --backtitle "$BACKTITLE" --title "YARA CORE-REGELN" \
-    --yes-label "Ja" --no-label "Nein" --defaultno \
-    --yesno "Aktuelle YARA-Forge-Core-Regeln herunterladen, prüfen und installieren?\n\nQuelle: github.com/YARAHQ/yara-forge\nZiel: /etc/clamav-security/yara/yara-forge-core.yar" 14 76; then
-    INSTALL_YARA_CORE=1
-else
-    INSTALL_YARA_CORE=0
-fi
+YARA_RULESET="$(menu_choice "YARA-FORGE-REGELN" \
+    "Genau ein Regelpaket auswählen. Die Pakete bauen inhaltlich aufeinander auf und werden deshalb nicht parallel installiert." \
+    "none" \
+    none "Keine Regeln herunterladen" \
+    core "Core – kuratiert, geringstes False-Positive-Risiko" \
+    extended "Extended – breiter, langsamer, mehr mögliche Fehlalarme" \
+    full "Full – nahezu vollständig, höchste Last und Fehlalarmrate")" || exit 1
 SECURITY_AUDIT_DAILY_CALENDAR="$(inputbox "AUDIT-ZEITPLAN" "Täglicher Security Audit (systemd OnCalendar)" "*-*-* 03:40:00")" || exit 1
 SECURITY_AUDIT_WEEKLY_CALENDAR="$(inputbox "AUDIT-ZEITPLAN" "Wöchentlicher Security Audit (systemd OnCalendar)" "Sun *-*-* 04:30:00")" || exit 1
 
@@ -211,7 +253,7 @@ Scanzeit:     $DAILY_SCAN_CALENDAR
 Heartbeat:    $HEARTBEAT_CALENDAR
 Audit Daily:  $SECURITY_AUDIT_ENABLED / $SECURITY_AUDIT_DAILY_CALENDAR
 Audit Weekly: $SECURITY_AUDIT_WEEKLY_ENABLED / $SECURITY_AUDIT_WEEKLY_CALENDAR
-YARA Core:    $([[ $INSTALL_YARA_CORE -eq 1 ]] && echo installieren || echo nicht installieren)
+YARA Forge:   $YARA_RULESET
 
 Das SMTP-Passwort wird aus Sicherheitsgründen nicht angezeigt."
 
@@ -220,5 +262,5 @@ dialog --clear --backtitle "$BACKTITLE" --title "INSTALLATION BESTÄTIGEN" \
 clear
 INSTALL_ARGS=(--config-source "$TMP_CONFIG")
 (( FORCE_INSTALL == 1 )) && INSTALL_ARGS+=(--force-install)
-(( INSTALL_YARA_CORE == 1 )) && INSTALL_ARGS+=(--install-yara-core)
+[[ "$YARA_RULESET" == "none" ]] || INSTALL_ARGS+=(--install-yara-rules "$YARA_RULESET")
 "$PROJECT_DIR/install.sh" "${INSTALL_ARGS[@]}"

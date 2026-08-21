@@ -33,6 +33,12 @@ for package in clamav clamav-daemon clamav-freshclam clamdscan; do
     grep -q "${package}" "$ROOT/install.sh"
 done
 
+echo "Prüfe angebotene dialog-Installation der TUI..."
+grep -q 'command -v dialog.*install_dialog_package' "$ROOT/install-tui.sh"
+grep -q 'apt-get install .*dialog' "$ROOT/install-tui.sh"
+grep -q 'pacman .*dialog' "$ROOT/install-tui.sh"
+grep -q 'dnf install .*dialog' "$ROOT/install-tui.sh"
+
 echo "Prüfe erwartete Dateien..."
 for f in \
     install.sh install-tui.sh uninstall.sh \
@@ -55,10 +61,13 @@ for f in \
     [[ -f "$ROOT/$f" ]] || { echo "FEHLT: $f" >&2; exit 1; }
 done
 
-echo "Prüfe YARA-Forge-Core-Integration..."
-grep -q 'yara-forge-rules-core.zip' "$ROOT/scripts/install-yara-core-rules.sh"
+echo "Prüfe YARA-Forge-Paketauswahl..."
+grep -q 'core|extended|full' "$ROOT/scripts/install-yara-core-rules.sh"
 grep -q -- '--install-yara-core' "$ROOT/install.sh"
-grep -q -- '--install-yara-core' "$ROOT/install-tui.sh"
+grep -q -- '--install-yara-rules' "$ROOT/install.sh"
+grep -q 'extended "Extended' "$ROOT/install-tui.sh"
+grep -q 'full "Full' "$ROOT/install-tui.sh"
+grep -q 'rm -f --.*yara-forge' "$ROOT/scripts/install-yara-core-rules.sh"
 grep -q 'YARA_CORE_TMP_DIR:-/var/lib/clamav-automation/tmp' \
     "$ROOT/scripts/install-yara-core-rules.sh"
 

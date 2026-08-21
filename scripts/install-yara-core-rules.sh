@@ -1,18 +1,29 @@
 #!/usr/bin/env bash
-# Lädt das aktuelle kuratierte Core-Regelpaket von YARA Forge und installiert es.
+# Lädt ein kuratiertes Regelpaket von YARA Forge und installiert es atomar.
 set -Eeuo pipefail
 
-URL="${YARA_FORGE_CORE_URL:-https://github.com/YARAHQ/yara-forge/releases/latest/download/yara-forge-rules-core.zip}"
-TARGET_DIR="${YARA_CORE_TARGET_DIR:-/etc/clamav-security/yara}"
-TARGET="$TARGET_DIR/yara-forge-core.yar"
-YARA_CORE_TMP_DIR="${YARA_CORE_TMP_DIR:-/var/lib/clamav-automation/tmp}"
-[[ -d "$YARA_CORE_TMP_DIR" ]] || {
-    echo "FEHLER: Sicheres temporäres Verzeichnis fehlt: $YARA_CORE_TMP_DIR" >&2
+PACKAGE="${1:-core}"
+case "$PACKAGE" in
+    core|extended|full) ;;
+    *) echo "FEHLER: YARA-Forge-Paket muss core, extended oder full sein: $PACKAGE" >&2; exit 2 ;;
+esac
+
+DEFAULT_URL="https://github.com/YARAHQ/yara-forge/releases/latest/download/yara-forge-rules-${PACKAGE}.zip"
+if [[ "$PACKAGE" == "core" && -n "${YARA_FORGE_CORE_URL:-}" ]]; then
+    URL="$YARA_FORGE_CORE_URL"
+else
+    URL="${YARA_FORGE_RULESET_URL:-$DEFAULT_URL}"
+fi
+TARGET_DIR="${YARA_RULESET_TARGET_DIR:-${YARA_CORE_TARGET_DIR:-/etc/clamav-security/yara}}"
+TARGET="$TARGET_DIR/yara-forge-${PACKAGE}.yar"
+YARA_TMP_DIR="${YARA_RULESET_TMP_DIR:-${YARA_CORE_TMP_DIR:-/var/lib/clamav-automation/tmp}}"
+[[ -d "$YARA_TMP_DIR" ]] || {
+    echo "FEHLER: Sicheres temporäres Verzeichnis fehlt: $YARA_TMP_DIR" >&2
     exit 1
 }
-TMP_ROOT="$(mktemp -d "$YARA_CORE_TMP_DIR/yara-forge-core.XXXXXX")"
-ARCHIVE="$TMP_ROOT/yara-forge-rules-core.zip"
-RULES="$TMP_ROOT/yara-rules-core.yar"
+TMP_ROOT="$(mktemp -d "$YARA_TMP_DIR/yara-forge-${PACKAGE}.XXXXXX")"
+ARCHIVE="$TMP_ROOT/yara-forge-rules-${PACKAGE}.zip"
+RULES="$TMP_ROOT/yara-rules-${PACKAGE}.yar"
 
 cleanup() { rm -rf -- "$TMP_ROOT"; }
 trap cleanup EXIT
@@ -34,13 +45,13 @@ with urllib.request.urlopen(request, timeout=60) as response:
     pathlib.Path(destination).write_bytes(response.read())
 PY
 
-python3 - "$ARCHIVE" "$RULES" <<'PY'
+python3 - "$ARCHIVE" "$RULES" "$PACKAGE" <<'PY'
 import pathlib
 import sys
 import zipfile
 
-archive, destination = sys.argv[1:]
-member = "packages/core/yara-rules-core.yar"
+archive, destination, package = sys.argv[1:]
+member = f"packages/{package}/yara-rules-{package}.yar"
 with zipfile.ZipFile(archive) as bundle:
     bad = bundle.testzip()
     if bad is not None:
@@ -55,10 +66,19 @@ PY
 yara -w "$RULES" /dev/null >/dev/null
 
 install -d -o root -g root -m 0750 "$TARGET_DIR"
-install -o root -g root -m 0640 "$RULES" "$TARGET"
+install -o root -g root -m 0640 "$RULES" "$TARGET.new"
+mv -f "$TARGET.new" "$TARGET"
 sha256sum "$TARGET" >"$TARGET.sha256"
 chown root:root "$TARGET.sha256"
 chmod 0640 "$TARGET.sha256"
 
-echo "YARA-Forge-Core-Regeln installiert: $TARGET"
+# Die Pakete sind gestufte, stark überlappende Alternativen. Nur das gewählte
+# Paket bleibt aktiv, damit Regeln und Treffer nicht mehrfach verarbeitet werden.
+for old_package in core extended full; do
+    [[ "$old_package" == "$PACKAGE" ]] && continue
+    rm -f -- "$TARGET_DIR/yara-forge-${old_package}.yar" \
+        "$TARGET_DIR/yara-forge-${old_package}.yar.sha256"
+done
+
+echo "YARA-Forge-Regelpaket '$PACKAGE' installiert: $TARGET"
 echo "SHA-256: $(sha256sum "$TARGET" | awk '{print $1}')"

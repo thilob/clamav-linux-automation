@@ -30,6 +30,15 @@ sudo systemctl status clamav-auto-clamd clamav-auto-onaccess
 sudo /usr/local/libexec/clamav-automation/clamav-selftest.sh
 ```
 
+## TUI-Abhängigkeit `dialog`
+
+`install-tui.sh` prüft vor dem Aufbau der Oberfläche, ob `dialog` verfügbar
+ist. Fehlt das Programm, erscheint eine einfache Terminalabfrage. Nur nach
+Bestätigung installiert die TUI das Paket aus den offiziellen
+Distributionsquellen mit `apt-get`, `pacman` oder `dnf`. Die Antwort „Nein“,
+eine nicht unterstützte Distribution oder ein Paketmanagerfehler beendet die
+Installation mit einer verständlichen Fehlermeldung.
+
 ## clamd-Start und Bereitschaft
 
 `clamd` lädt beim Start die vollständige Signaturdatenbank in den Arbeitsspeicher.
@@ -110,26 +119,35 @@ Log:
 journalctl -u clamav-auto-scan.service -n 100 --no-pager
 ```
 
-## YARA-Forge-Core-Regeln
+## YARA-Forge-Regelpakete
 
 Die optionale Installation beziehungsweise Aktualisierung erfolgt zusammen mit
 einem Projektupgrade:
 
 ```bash
-sudo ./install.sh --upgrade --install-yara-core
+sudo ./install.sh --upgrade --install-yara-rules core
+# Alternativen: extended oder full
 ```
 
 Installierte Datei und lokale Prüfsumme kontrollieren:
 
 ```bash
-sudo sha256sum -c /etc/clamav-security/yara/yara-forge-core.yar.sha256 \
+paket=core  # alternativ: extended oder full
+sudo sha256sum -c "/etc/clamav-security/yara/yara-forge-${paket}.yar.sha256" \
   --ignore-missing
-sudo yara -w /etc/clamav-security/yara/yara-forge-core.yar /dev/null
+sudo yara -w "/etc/clamav-security/yara/yara-forge-${paket}.yar" /dev/null
 ```
 
 Der zweite Befehl kompiliert den vollständigen Regelsatz und kann einige Zeit
 benötigen. Die Regeln werden nicht automatisch unabhängig vom Projektupgrade
 aktualisiert; dadurch ändert sich der Audit-Regelbestand nicht unbemerkt.
+
+`core`, `extended` und `full` sind keine additiven Abhängigkeiten, sondern
+gestufte und stark überlappende Pakete. Der Installationshelfer lässt deshalb
+nur eines davon aktiv und entfernt nach erfolgreicher Kompilierung die beiden
+anderen YARA-Forge-Paketdateien. Das Upgrade sichert den bisherigen Bestand
+vorher unter `/var/backups/clamav-automation/`. Andere lokale Regeldateien im
+gleichen Verzeichnis werden nicht entfernt.
 
 Da Regeldateien Malware-Signaturen als Daten enthalten, ist ausschließlich
 `/etc/clamav-security/yara` in `clamd.conf` per `OnAccessExcludePath` und im

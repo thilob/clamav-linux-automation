@@ -11,17 +11,25 @@ BACKUP_DIR="/var/backups/clamav-automation/$(date '+%Y%m%d-%H%M%S')-upgrade"
 CLAM_USER="clamav-auto"
 CLAM_GROUP="clamav-auto"
 FRESHCLAM_OK=1
-INSTALL_YARA_CORE=0
+YARA_RULESET=""
 
 log() { printf '\n==> %s\n' "$*"; }
 die() { echo "FEHLER: $*" >&2; exit 1; }
 
-if (( $# > 1 )); then
-    die "Aufruf: $0 [--install-yara-core]"
-elif (( $# == 1 )); then
-    [[ "$1" == "--install-yara-core" ]] || die "Unbekannte Option: $1"
-    INSTALL_YARA_CORE=1
-fi
+case "${1:-}" in
+    "") (( $# == 0 )) || die "Ungültige Argumente." ;;
+    --install-yara-core)
+        (( $# == 1 )) || die "Aufruf: $0 [--install-yara-rules PAKET]"
+        YARA_RULESET="core"
+        ;;
+    --install-yara-rules)
+        (( $# == 2 )) || die "Aufruf: $0 [--install-yara-rules PAKET]"
+        [[ "$2" =~ ^(core|extended|full)$ ]] || \
+            die "YARA-Forge-Paket muss core, extended oder full sein."
+        YARA_RULESET="$2"
+        ;;
+    *) die "Unbekannte Option: $1" ;;
+esac
 
 [[ $EUID -eq 0 ]] || die "Bitte als root ausführen."
 [[ -r "$CONFIG_DIR/clamav-automation.conf" ]] || \
@@ -37,6 +45,8 @@ done
 log "Sichere vorhandene Projektdateien"
 install -d -m 0700 "$BACKUP_DIR"
 cp -a "$CONFIG_DIR" "$BACKUP_DIR/"
+[[ -d /etc/clamav-security/yara ]] && \
+    cp -a /etc/clamav-security/yara "$BACKUP_DIR/" || true
 for path in /etc/systemd/system/clamav-auto-* "$LIBEXEC_DIR"; do
     [[ -e "$path" ]] && cp -a "$path" "$BACKUP_DIR/" || true
 done
@@ -63,7 +73,7 @@ for unit in "$PROJECT_DIR"/systemd/*.service; do
 done
 "$LIBEXEC_DIR/render-config.sh"
 
-if (( INSTALL_YARA_CORE == 1 )); then
+if [[ -n "$YARA_RULESET" ]]; then
     if ! command -v yara >/dev/null 2>&1; then
         [[ -r /etc/os-release ]] || die "/etc/os-release fehlt."
         # shellcheck source=/dev/null
@@ -75,8 +85,8 @@ if (( INSTALL_YARA_CORE == 1 )); then
             *) die "YARA-Paketinstallation ist für diese Distribution nicht definiert." ;;
         esac
     fi
-    log "Lade und installiere YARA-Forge-Core-Regeln"
-    "$LIBEXEC_DIR/install-yara-core-rules.sh"
+    log "Lade und installiere YARA-Forge-Regelpaket '$YARA_RULESET'"
+    "$LIBEXEC_DIR/install-yara-core-rules.sh" "$YARA_RULESET"
 fi
 
 if command -v getenforce >/dev/null 2>&1 && [[ "$(getenforce)" != "Disabled" ]]; then
