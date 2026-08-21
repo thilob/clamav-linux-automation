@@ -28,6 +28,7 @@ ARGS=(
     --fdpass
     --multiscan
     --infected
+    '--exclude=^/etc/clamav-security/yara(/|$)'
 )
 
 for regex in "${DAILY_EXCLUDE_REGEX[@]:-}"; do

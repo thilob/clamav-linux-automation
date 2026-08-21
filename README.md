@@ -140,6 +140,14 @@ zusätzlicher Herkunftsnachweis.
 Das Core-Paket umfasst mehrere tausend Regeln. Wöchentliche YARA-Audits können
 dadurch – insbesondere bei großen `/home`-Beständen – deutlich länger dauern.
 
+YARA-Regeldateien enthalten absichtlich Signaturen und verdächtige
+Zeichenfolgen. ClamAV kann deshalb die Regeldateien selbst als Bedrohung
+erkennen. Das eng begrenzte Verzeichnis `/etc/clamav-security/yara` ist sowohl
+vom On-Access-Scanner als auch vom täglichen ClamAV-Scan ausgenommen. Die Regeln
+werden weiterhin vom Security-Audit geladen und auf die konfigurierten
+YARA-Scanpfade angewendet. Andere Dateien unter `/etc/clamav-security` bleiben
+im ClamAV-Scan enthalten.
+
 Beim ersten Start lädt `clamd` mehrere Millionen Signaturen in den
 Arbeitsspeicher. Je nach CPU, Datenträger und Datenbankgröße kann das ungefähr
 30 bis 180 Sekunden dauern. Der Installer zeigt währenddessen regelmäßig einen

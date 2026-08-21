@@ -131,6 +131,12 @@ Der zweite Befehl kompiliert den vollständigen Regelsatz und kann einige Zeit
 benötigen. Die Regeln werden nicht automatisch unabhängig vom Projektupgrade
 aktualisiert; dadurch ändert sich der Audit-Regelbestand nicht unbemerkt.
 
+Da Regeldateien Malware-Signaturen als Daten enthalten, ist ausschließlich
+`/etc/clamav-security/yara` in `clamd.conf` per `OnAccessExcludePath` und im
+täglichen `clamdscan` per Pfad-RegEx ausgenommen. Diese Ausnahme verhindert
+Selbsttreffer auf den Regelbestand; sie deaktiviert nicht die Anwendung der
+YARA-Regeln durch den Security-Audit.
+
 Detailprotokoll:
 
 ```bash

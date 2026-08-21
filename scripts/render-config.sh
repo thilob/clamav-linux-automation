@@ -46,6 +46,7 @@ MaxFiles ${CLAMD_MAX_FILES:-20000}
 VirusEvent /usr/local/libexec/clamav-automation/clamav-virus-event.sh
 
 OnAccessExcludeUname clamav-auto
+OnAccessExcludePath /etc/clamav-security/yara
 OnAccessPrevention $(bool_value "${ONACCESS_PREVENTION:-no}")
 EOF
 

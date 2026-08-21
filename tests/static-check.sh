@@ -69,6 +69,12 @@ grep -q 'semanage fcontext .* -e /var/lib/clamav' "$ROOT/install.sh"
 grep -q 'semanage fcontext .* -e /var/lib/clamav' \
     "$ROOT/scripts/upgrade-installation.sh"
 
+echo "Prüfe ClamAV-Ausnahme für YARA-Regeln..."
+grep -q '^OnAccessExcludePath /etc/clamav-security/yara$' \
+    "$ROOT/scripts/render-config.sh"
+grep -qF -- "--exclude=^/etc/clamav-security/yara(/|\$)" \
+    "$ROOT/scripts/clamav-daily-scan.sh"
+
 echo "Prüfe Security-Audit-Dry-Run..."
 SECURITY_AUDIT_CONFIG="$ROOT/tests/security-audit-test.conf" \
     "$ROOT/scripts/security-audit.sh" --weekly --dry-run | \
